@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>爱的艺术 — 互动叙事游戏</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+/* === RESET & BASE === */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --gold:#e07020;--gold-light:#f09050;--gold-dim:#c06018;
+  --rose:#c45b7a;--rose-light:#e8a0b4;--blue:#4a7fb5;
+  --teal:#2e8b7a;--purple:#7b5ea7;--warm:#5c4033;
+  --text:#3a2e28;--text-dim:#6a5b50;--text-bright:#2a1e18;
+  --text-light:#f9f2ec;
+  --glass:rgba(255,255,255,0.72);--glass-border:rgba(255,255,255,0.8);
+  --glass-strong:rgba(255,255,255,0.82);
+}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Noto Sans SC',sans-serif}
+body{background:#fdf0e2;color:var(--text);transition:background 1.2s ease}
+
+/* === CHAPTER BG IMAGE === */
+#chapterBg{position:fixed;inset:0;z-index:0;background-size:cover;background-position:center;transition:opacity 1.2s ease;opacity:0}
+#chapterBg.show{opacity:1}
+#chapterBg::after{display:none}
+
+/* === CHAPTER THEMES (fallback gradient overlay) === */
+body.theme-prologue{background:linear-gradient(160deg,#e8d5f0 0%,#d4c5e8 30%,#c8b8e0 60%,#e0d0f0 100%)}
+body.theme-ch1{background:linear-gradient(160deg,#fde8d0 0%,#fdd5b0 40%,#fce0c0 70%,#fff0e0 100%)}
+body.theme-ch2{background:linear-gradient(160deg,#fce4ec 0%,#f8d0d8 40%,#fde0e8 70%,#fff0f4 100%)}
+body.theme-ch3{background:linear-gradient(160deg,#e0f2f1 0%,#c8e8e4 40%,#d8f0ec 70%,#f0faf8 100%)}
+body.theme-ch4{background:linear-gradient(160deg,#fff3e0 0%,#ffe0b0 40%,#ffecc8 70%,#fff8f0 100%)}
+body.theme-ch5{background:linear-gradient(160deg,#e8f5e9 0%,#c8e6c9 40%,#d8eeda 70%,#f0f8f0 100%)}
+body.theme-ending{background:linear-gradient(160deg,#fff8e1 0%,#ffe0a0 30%,#ffecc0 60%,#fffaf0 100%)}
+
+/* === PRELOADER === */
+#preloader{position:fixed;inset:0;z-index:9999;background:linear-gradient(160deg,#fdf0e2,#fce4d6,#fde8d0);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 1s}
+#preloader.hide{opacity:0;pointer-events:none}
+#preloader h1{font-family:'Noto Serif SC',serif;font-size:2.4rem;color:var(--gold);margin-bottom:1rem;letter-spacing:0.3em}
+#preloader p{color:var(--text-dim);font-size:0.95rem;margin-bottom:2rem}
+.loader-bar{width:200px;height:3px;background:rgba(0,0,0,0.06);border-radius:2px;overflow:hidden}
+.loader-bar span{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--gold),var(--rose));transition:width 0.8s;border-radius:2px}
+
+/* === STARFIELD === */
+#starfield{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.star{position:absolute;border-radius:50%;background:white;animation:twinkle var(--dur) ease-in-out infinite;opacity:0}
+@keyframes twinkle{0%,100%{opacity:0;transform:scale(0.5)}50%{opacity:var(--peak);transform:scale(1)}}
+.sparkle-burst{position:fixed;pointer-events:none;z-index:400}
+.sparkle{position:absolute;width:4px;height:4px;border-radius:50%;background:var(--gold-light);opacity:0;animation:sparkleFly 1s forwards}
+@keyframes sparkleFly{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--tx),var(--ty)) scale(0)}}
+
+/* === GAME CONTAINER === */
+#game{width:100%;height:100%;display:none;position:relative;overflow:hidden}
+#game.active{display:block}
+
+/* === AMBIENT ORB === */
+#ambient{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.orb{position:absolute;border-radius:50%;filter:blur(100px);opacity:0.18;animation:float 20s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-40px) scale(1.1)}}
+
+/* === TOP BAR (glassmorphism) === */
+#topbar{position:absolute;top:0;left:0;right:0;height:52px;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:rgba(255,255,255,0.7);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-bottom:1px solid rgba(255,255,255,0.7)}
+#topbar .chapter-label{font-family:'Noto Serif SC',serif;color:var(--gold);font-size:0.85rem;letter-spacing:0.15em}
+#topbar .progress-wrap{display:flex;align-items:center;gap:8px}
+.progress-dots{display:flex;gap:6px}
+.progress-dots .dot{width:8px;height:8px;border-radius:50%;background:rgba(0,0,0,0.08);border:1.5px solid var(--gold-dim);transition:all 0.5s}
+.progress-dots .dot.done{background:var(--gold);border-color:var(--gold);box-shadow:0 0 8px rgba(224,112,32,0.35)}
+.progress-dots .dot.current{border-color:var(--gold);box-shadow:0 0 8px rgba(224,112,32,0.3);animation:pulse-dot 2s infinite}
+@keyframes pulse-dot{0%,100%{transform:scale(1)}50%{transform:scale(1.3)}}
+#topbar .insight-count{color:var(--gold);font-size:0.8rem;display:flex;align-items:center;gap:4px}
+#topbar .insight-count svg{width:14px;height:14px;fill:var(--gold)}
+.music-toggle{background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all 0.3s;opacity:0.7}
+.music-toggle:hover{opacity:1;background:rgba(224,112,32,0.08)}
+.music-toggle svg{width:18px;height:18px;fill:var(--gold)}
+.music-toggle.muted svg{fill:var(--text-dim);opacity:0.4}
+.music-toggle{position:relative}
+.music-toggle.muted::after{content:'';position:absolute;width:2px;height:20px;background:var(--text-dim);transform:rotate(45deg);border-radius:1px}
+
+/* === MAIN SCENE === */
+#scene{position:absolute;inset:52px 0 0 0;z-index:10;display:flex;flex-direction:column;align-items:center;padding:40px 20px 40px;overflow-y:auto;-webkit-overflow-scrolling:touch;mask-image:linear-gradient(to bottom, transparent 0%, black 50px, black 100%);-webkit-mask-image:linear-gradient(to bottom, transparent 0%, black 50px, black 100%)}
+
+/* === DIALOGUE === */
+.dialogue-box{max-width:680px;width:100%;opacity:0;transform:translateY(20px);animation:fadeUp 0.6s forwards}
+@keyframes fadeUp{to{opacity:1;transform:translateY(0)}}
+.narrator{font-family:'Noto Serif SC',serif;color:var(--warm);font-size:1.15rem;line-height:2;text-align:center;margin-bottom:24px}
+.character-line{display:flex;gap:16px;margin-bottom:16px;align-items:flex-start}
+.char-avatar{width:44px;height:44px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;border:2px solid;background:rgba(255,255,255,0.7);backdrop-filter:blur(8px)}
+.char-name{font-size:0.75rem;color:var(--text-dim);margin-bottom:4px}
+.char-text{background:rgba(255,255,255,0.78);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:16px;padding:14px 18px;font-size:0.95rem;line-height:1.8;color:var(--text);border:1px solid var(--glass-border);max-width:560px}
+.char-text .highlight{color:var(--gold);font-weight:600}
+
+/* === CHOICES (glassmorphism) === */
+.choices{display:flex;flex-direction:column;gap:10px;max-width:560px;width:100%;margin:20px auto 0}
+.choice-btn{background:rgba(255,255,255,0.78);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--glass-border);color:var(--text);padding:14px 20px;border-radius:12px;cursor:pointer;font-size:0.95rem;line-height:1.6;text-align:left;transition:all 0.3s;font-family:'Noto Sans SC',sans-serif;position:relative;overflow:hidden}
+.choice-btn:hover{border-color:var(--gold-light);background:rgba(255,255,255,0.88);transform:translateX(6px);box-shadow:0 4px 20px rgba(224,112,32,0.12)}
+.choice-btn::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--gold);opacity:0;transition:opacity 0.3s}
+.choice-btn:hover::before{opacity:1}
+
+/* === INTERACTIVE TASKS === */
+.task-area{max-width:680px;width:100%;margin:0 auto}
+.task-title{font-family:'Noto Serif SC',serif;color:var(--gold);font-size:1.1rem;text-align:center;margin-bottom:20px}
+.task-desc{color:var(--text-dim);font-size:0.9rem;text-align:center;margin-bottom:24px;line-height:1.7}
+
+/* Drag & Drop */
+.drag-container{display:flex;gap:24px;justify-content:center;flex-wrap:wrap;margin-bottom:20px}
+.drag-zone{min-width:180px;min-height:140px;border:2px dashed rgba(224,112,32,0.25);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px;align-items:center;transition:all 0.3s;background:rgba(255,255,255,0.45);backdrop-filter:blur(12px)}
+.drag-zone.over{border-color:var(--gold);background:rgba(255,255,255,0.35)}
+.drag-zone-label{font-size:0.8rem;color:var(--gold-dim);margin-bottom:8px;font-family:'Noto Serif SC',serif}
+.drag-item{background:rgba(255,255,255,0.75);backdrop-filter:blur(12px);border:1px solid var(--glass-border);padding:8px 16px;border-radius:8px;cursor:grab;font-size:0.88rem;transition:all 0.2s;user-select:none;text-align:center;color:var(--text)}
+.drag-item:active{cursor:grabbing;transform:scale(1.05)}
+.drag-item.correct{border-color:var(--teal);background:rgba(46,139,122,0.12);color:var(--teal)}
+.drag-item.wrong{border-color:var(--rose);background:rgba(196,91,122,0.1);animation:shake 0.4s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+/* Slider */
+.slider-group{margin:16px auto;max-width:480px}
+.slider-label{display:flex;justify-content:space-between;font-size:0.8rem;color:var(--text-dim);margin-bottom:8px}
+.slider-wrap{position:relative;padding:12px 0}
+input[type=range]{width:100%;-webkit-appearance:none;background:transparent;outline:none}
+input[type=range]::-webkit-slider-runnable-track{height:4px;background:linear-gradient(90deg,var(--rose-light),var(--gold-light),var(--teal));border-radius:2px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:white;border:2.5px solid var(--gold);margin-top:-9px;cursor:pointer;box-shadow:0 2px 10px rgba(224,112,32,0.3)}
+.slider-value{text-align:center;color:var(--gold);font-size:1.1rem;margin-top:8px;font-family:'Noto Serif SC',serif}
+
+/* Text Input */
+.text-input-area{margin:16px auto;max-width:500px}
+.text-input-area textarea{width:100%;min-height:100px;background:rgba(255,255,255,0.7);backdrop-filter:blur(16px);border:1px solid var(--glass-border);border-radius:12px;padding:14px;color:var(--text);font-size:0.95rem;resize:vertical;font-family:'Noto Sans SC',sans-serif;line-height:1.7;outline:none;transition:border-color 0.3s}
+.text-input-area textarea:focus{border-color:var(--gold)}
+.text-input-area textarea::placeholder{color:var(--text-dim)}
+
+/* Card Select */
+.card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:16px 0}
+.select-card{background:rgba(255,255,255,0.72);backdrop-filter:blur(16px);border:2px solid transparent;border-radius:14px;padding:16px;cursor:pointer;text-align:center;transition:all 0.3s}
+.select-card:hover{border-color:rgba(224,112,32,0.3);transform:translateY(-3px);box-shadow:0 6px 20px rgba(0,0,0,0.06)}
+.select-card.selected{border-color:var(--gold);background:rgba(224,112,32,0.1)}
+.select-card .card-icon{margin-bottom:8px;display:flex;justify-content:center;align-items:center}
+.select-card .card-icon svg{width:56px;height:56px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.08))}
+.icon-circle{width:64px;height:64px;display:inline-flex;justify-content:center;align-items:center}
+.icon-circle svg{width:64px;height:64px;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.1))}
+.select-card .card-label{font-size:0.88rem;color:var(--text);margin-bottom:4px;font-weight:500}
+.select-card .card-desc{font-size:0.75rem;color:var(--text-dim);line-height:1.5}
+
+/* Reflection (glassmorphism) */
+.reflection-box{background:rgba(255,255,255,0.72);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.8);border-radius:16px;padding:24px;margin:20px auto;max-width:600px;opacity:0;transform:scale(0.95);transition:all 0.6s}
+.reflection-box.show{opacity:1;transform:scale(1)}
+.reflection-box .quote{font-family:'Noto Serif SC',serif;color:var(--warm);font-size:1.05rem;line-height:2;margin-bottom:12px;font-style:italic}
+.reflection-box .insight{color:var(--text-dim);font-size:0.9rem;line-height:1.8}
+.reflection-box .fromm-tag{color:var(--gold-dim);font-size:0.75rem;margin-top:12px;text-align:right}
+
+/* === CONFIRM BUTTON === */
+.confirm-btn{display:block;margin:20px auto 0;padding:12px 36px;background:linear-gradient(135deg,var(--gold-light),var(--gold));color:white;border:none;border-radius:10px;font-size:0.95rem;font-weight:600;cursor:pointer;font-family:'Noto Sans SC',sans-serif;transition:all 0.3s;letter-spacing:0.05em;box-shadow:0 4px 16px rgba(224,112,32,0.25)}
+.confirm-btn:hover{transform:translateY(-2px);box-shadow:0 6px 24px rgba(224,112,32,0.35)}
+.confirm-btn:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none}
+
+/* === INSIGHT POPUP (glass) === */
+.insight-popup{position:fixed;top:64px;right:20px;z-index:200;background:rgba(255,255,255,0.82);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(224,112,32,0.3);border-radius:14px;padding:16px 20px;max-width:320px;opacity:0;transform:translateX(40px);transition:all 0.5s;pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,0.08)}
+.insight-popup.show{opacity:1;transform:translateX(0);pointer-events:auto}
+.insight-popup .ip-title{color:var(--gold);font-size:0.8rem;margin-bottom:6px;font-family:'Noto Serif SC',serif;letter-spacing:0.1em}
+.insight-popup .ip-text{color:var(--text);font-size:0.88rem;line-height:1.7}
+
+/* === ENDING === */
+.ending-wrap{text-align:center;max-width:640px}
+.ending-wrap h2{font-family:'Noto Serif SC',serif;font-size:2rem;color:var(--gold);margin-bottom:16px;letter-spacing:0.15em}
+.ending-wrap .ending-subtitle{color:var(--warm);font-size:1.05rem;margin-bottom:32px;line-height:2;font-family:'Noto Serif SC',serif}
+.ending-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:32px}
+.stat-card{background:rgba(255,255,255,0.72);backdrop-filter:blur(16px);border-radius:14px;padding:20px;border:1px solid var(--glass-border)}
+.stat-card .stat-num{font-size:1.8rem;color:var(--gold);font-family:'Noto Serif SC',serif;font-weight:700}
+.stat-card .stat-label{font-size:0.8rem;color:var(--text-dim);margin-top:4px}
+
+/* Journal (for screenshot) */
+.insights-journal{text-align:left;background:rgba(255,255,255,0.75);backdrop-filter:blur(20px);border-radius:16px;padding:24px;margin-bottom:24px;border:1px solid rgba(255,255,255,0.8);position:relative}
+.insights-journal h3{font-family:'Noto Serif SC',serif;color:var(--gold);font-size:1rem;margin-bottom:16px;letter-spacing:0.1em}
+.journal-item{padding:10px 0;border-bottom:1px solid rgba(0,0,0,0.05);font-size:0.88rem;line-height:1.7;color:var(--text-dim)}
+.journal-item:last-child{border-bottom:none}
+.journal-item .ji-ch{color:var(--gold-dim);font-size:0.75rem;margin-bottom:2px}
+#journalSaveArea{display:none;position:relative}
+#journalCanvas{background:linear-gradient(160deg,#fff8e1,#ffe0a0,#ffecc0);border-radius:16px;padding:32px}
+.save-journal-btn{display:inline-flex;align-items:center;gap:6px;margin:12px auto 0;padding:10px 24px;background:var(--glass-strong);backdrop-filter:blur(12px);border:1px solid var(--glass-border);color:var(--gold);border-radius:10px;cursor:pointer;font-size:0.88rem;font-family:'Noto Sans SC',sans-serif;transition:all 0.3s}
+.save-journal-btn:hover{background:rgba(255,255,255,0.8);box-shadow:0 4px 16px rgba(0,0,0,0.08)}
+.restart-btn{display:inline-flex;align-items:center;gap:6px;margin:8px auto 0;padding:10px 24px;background:transparent;border:1.5px solid var(--gold-dim);color:var(--gold);border-radius:10px;cursor:pointer;font-size:0.88rem;font-family:'Noto Sans SC',sans-serif;transition:all 0.3s}
+.restart-btn:hover{background:rgba(224,112,32,0.08);border-color:var(--gold)}
+
+/* === CHAPTER TRANSITION === */
+.chapter-transition{position:fixed;inset:0;z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.8s;background:rgba(255,255,255,0.5);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px)}
+.chapter-transition.show{opacity:1;pointer-events:auto}
+.chapter-transition .ct-num{font-size:0.85rem;color:var(--gold-dim);letter-spacing:0.3em;margin-bottom:12px}
+.chapter-transition .ct-title{font-family:'Noto Serif SC',serif;font-size:1.8rem;color:var(--gold);letter-spacing:0.2em}
+.chapter-transition .ct-line{width:60px;height:1px;background:var(--gold-dim);margin-top:20px}
+
+/* === TYPING EFFECT === */
+.typing-cursor::after{content:'|';color:var(--gold);animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* === MOBILE === */
+@media(max-width:640px){
+  .narrator{font-size:1rem}
+  .card-grid{grid-template-columns:repeat(2,1fr)}
+  .ending-stats{grid-template-columns:1fr}
+  .drag-container{flex-direction:column;align-items:center}
+}
+
+/* === LIGHT PARTICLES (replacing hearts) === */
+.light-particle{position:fixed;z-index:300;pointer-events:none;width:6px;height:6px;border-radius:50%;opacity:0;animation:lightFloat 2.5s forwards}
+@keyframes lightFloat{0%{opacity:0.9;transform:translateY(0) scale(1)}50%{opacity:0.6}100%{opacity:0;transform:translateY(-140px) scale(0.2)}}
+
+/* === CONTINUE HINT === */
+.continue-hint{color:var(--text-dim);font-size:0.8rem;text-align:center;margin-top:20px;opacity:0;animation:fadeIn 0.6s 0.5s forwards}
+@keyframes fadeIn{to{opacity:1}}
+
+/* === SCENARIO CARD === */
+.scenario-card{background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--glass-border);border-radius:14px;padding:20px 24px;margin-bottom:20px;color:var(--warm);font-size:1rem;line-height:1.9;text-align:center;font-family:'Noto Serif SC',serif;box-shadow:0 2px 16px rgba(0,0,0,0.04)}
+
+/* === SCENE ENTER ANIMATION === */
+.scene-enter{animation:sceneSlideIn 0.8s ease-out}
+@keyframes sceneSlideIn{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<!-- CHAPTER BACKGROUND IMAGE -->
+<div id="chapterBg"></div>
+
+<!-- STARFIELD -->
+<div id="starfield"></div>
+
+<!-- PRELOADER -->
+<div id="preloader">
+  <h1>爱的艺术</h1>
+  <p>基于弗洛姆经典著作的互动叙事游戏</p>
+  <div class="loader-bar"><span id="loadBar"></span></div>
+</div>
+
+<!-- CHAPTER TRANSITION -->
+<div class="chapter-transition" id="chapterTrans">
+  <div class="ct-num" id="ctNum"></div>
+  <div class="ct-title" id="ctTitle"></div>
+  <div class="ct-line"></div>
+</div>
+
+<!-- INSIGHT POPUP -->
+<div class="insight-popup" id="insightPopup">
+  <div class="ip-title">&#10022; 顿悟时刻</div>
+  <div class="ip-text" id="insightText"></div>
+</div>
+
+<!-- GAME -->
+<div id="game">
+  <div id="ambient"></div>
+  <div id="topbar">
+    <div class="chapter-label" id="chapterLabel">序章</div>
+    <div class="progress-wrap">
+      <div class="progress-dots" id="progressDots"></div>
+      <button class="music-toggle" id="musicToggle" title="背景音乐">
+        <svg viewBox="0 0 24 24" id="musicIcon"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+      </button>
+      <div class="insight-count">
+        <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        <span id="insightNum">0</span>
+      </div>
+    </div>
+  </div>
+  <div id="scene"></div>
+</div>
+<script>
+// ============================================================
+// GAME ENGINE
+// ============================================================
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+const STATE = {
+  chapter: 0, step: 0, insights: [], choices: {},
+  loveScores: { care: 0, responsibility: 0, respect: 0, knowledge: 0 },
+  selfLove: 50, started: false
+};
+
+const CHAPTERS = [
+  { id: 'prologue', label: '序章', title: '孤独的城市', theme: 'theme-prologue',
+    transBg: 'linear-gradient(160deg,#e8d5f0,#d4c5e8)', orbColors:['#c8a8e8','#e8c0d8','#d0b0e0'],
+    bgImg: 'bg/bg-prologue.jpg' },
+  { id: 'ch1', label: '第一章', title: '爱是一门艺术吗？', theme: 'theme-ch1',
+    transBg: 'linear-gradient(160deg,#fde8d0,#fdd5b0)', orbColors:['#f0c878','#e8a860','#f0d898'],
+    bgImg: 'bg/bg-ch1.jpg' },
+  { id: 'ch2', label: '第二章', title: '爱的四个支柱', theme: 'theme-ch2',
+    transBg: 'linear-gradient(160deg,#fce4ec,#f8d0d8)', orbColors:['#f0a0b8','#e8c0c8','#f8b0c0'],
+    bgImg: 'bg/bg-ch2.jpg' },
+  { id: 'ch3', label: '第三章', title: '五种爱的面貌', theme: 'theme-ch3',
+    transBg: 'linear-gradient(160deg,#e0f2f1,#c8e8e4)', orbColors:['#80cbc4','#a8d8d0','#90c8c0'],
+    bgImg: 'bg/bg-ch3.jpg' },
+  { id: 'ch4', label: '第四章', title: '现代社会的伪爱', theme: 'theme-ch4',
+    transBg: 'linear-gradient(160deg,#fff3e0,#ffe0b0)', orbColors:['#f0c060','#e8a840','#f0d080'],
+    bgImg: 'bg/bg-ch4.jpg' },
+  { id: 'ch5', label: '第五章', title: '修行之路', theme: 'theme-ch5',
+    transBg: 'linear-gradient(160deg,#e8f5e9,#c8e6c9)', orbColors:['#81c784','#a5d6a7','#90c890'],
+    bgImg: 'bg/bg-ch5.jpg' },
+  { id: 'ending', label: '终章', title: '站在爱中', theme: 'theme-ending',
+    transBg: 'linear-gradient(160deg,#fff8e1,#ffe0a0)', orbColors:['#f0c040','#e8a830','#f0d070'],
+    bgImg: 'bg/bg-ending.jpg' }
+];
+
+// ---- SOUND ENGINE (Web Audio API) ----
+const SFX = {
+  ctx: null,
+  init() {
+    if (this.ctx) return;
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+  },
+  play(type) {
+    if (!this.ctx) this.init();
+    const ctx = this.ctx;
+    if (ctx.state === 'suspended') ctx.resume();
+    const now = ctx.currentTime;
+    switch(type) {
+      case 'click': {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine'; o.frequency.setValueAtTime(880, now);
+        o.frequency.exponentialRampToValueAtTime(440, now + 0.08);
+        g.gain.setValueAtTime(0.06, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(now); o.stop(now + 0.12);
+        break;
+      }
+      case 'select': {
+        [523, 659, 784].forEach((freq, i) => {
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.type = 'sine'; o.frequency.value = freq;
+          g.gain.setValueAtTime(0.04, now + i*0.06);
+          g.gain.exponentialRampToValueAtTime(0.001, now + i*0.06 + 0.25);
+          o.connect(g); g.connect(ctx.destination);
+          o.start(now + i*0.06); o.stop(now + i*0.06 + 0.25);
+        });
+        break;
+      }
+      case 'drop': {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'triangle'; o.frequency.setValueAtTime(600, now);
+        o.frequency.exponentialRampToValueAtTime(300, now + 0.15);
+        g.gain.setValueAtTime(0.075, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(now); o.stop(now + 0.2);
+        break;
+      }
+      case 'wrong': {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sawtooth'; o.frequency.value = 180;
+        g.gain.setValueAtTime(0.03, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(now); o.stop(now + 0.2);
+        break;
+      }
+      case 'insight': {
+        [440, 554, 659, 880, 1047].forEach((freq, i) => {
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.type = 'sine'; o.frequency.value = freq;
+          g.gain.setValueAtTime(0.035, now + i*0.1);
+          g.gain.exponentialRampToValueAtTime(0.001, now + i*0.1 + 0.5);
+          o.connect(g); g.connect(ctx.destination);
+          o.start(now + i*0.1); o.stop(now + i*0.1 + 0.5);
+        });
+        break;
+      }
+      case 'chapter': {
+        const o = ctx.createOscillator();
+        const o2 = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = 220;
+        o2.type = 'sine'; o2.frequency.value = 330;
+        g.gain.setValueAtTime(0.05, now);
+        g.gain.linearRampToValueAtTime(0.075, now + 0.3);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
+        o.connect(g); o2.connect(g); g.connect(ctx.destination);
+        o.start(now); o2.start(now + 0.15);
+        o.stop(now + 1.8); o2.stop(now + 1.8);
+        break;
+      }
+      case 'confirm': {
+        [523, 784].forEach((freq, i) => {
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.type = 'sine'; o.frequency.value = freq;
+          g.gain.setValueAtTime(0.05, now + i*0.08);
+          g.gain.exponentialRampToValueAtTime(0.001, now + i*0.08 + 0.2);
+          o.connect(g); g.connect(ctx.destination);
+          o.start(now + i*0.08); o.stop(now + i*0.08 + 0.2);
+        });
+        break;
+      }
+      case 'drag': {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine'; o.frequency.setValueAtTime(400, now);
+        o.frequency.exponentialRampToValueAtTime(600, now + 0.06);
+        g.gain.setValueAtTime(0.04, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(now); o.stop(now + 0.08);
+        break;
+      }
+      case 'slider': {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = 700 + Math.random() * 200;
+        g.gain.setValueAtTime(0.015, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(now); o.stop(now + 0.04);
+        break;
+      }
+      case 'type': {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine';
+        o.frequency.value = 600 + Math.random() * 400;
+        g.gain.setValueAtTime(0.0125, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(now); o.stop(now + 0.04);
+        break;
+      }
+    }
+  }
+};
+
+// Init sound on first user interaction
+document.addEventListener('click', () => { SFX.init(); BGM.init(); }, { once: true });
+document.addEventListener('touchstart', () => { SFX.init(); BGM.init(); }, { once: true });
+
+// ---- BACKGROUND MUSIC ENGINE (Generative Ambient) ----
+const BGM = {
+  ctx: null,
+  master: null,
+  reverb: null,
+  current: null, // { nodes: [], interval, idx }
+  volume: 0.35,
+  muted: false,
+
+  init() {
+    if (this.ctx) return;
+    this.ctx = SFX.ctx || new (window.AudioContext || window.webkitAudioContext)();
+    if (!SFX.ctx) SFX.ctx = this.ctx;
+    // Master gain
+    this.master = this.ctx.createGain();
+    this.master.gain.value = this.volume;
+    // Convolution reverb simulation using delays
+    this.reverb = this._createReverb();
+    this.reverb.output.connect(this.master);
+    this.master.connect(this.ctx.destination);
+  },
+
+  _createReverb() {
+    const ctx = this.ctx;
+    // Create a simple reverb using parallel delays
+    const input = ctx.createGain();
+    input.gain.value = 1;
+    const output = ctx.createGain();
+    output.gain.value = 1;
+    // Dry path
+    const dry = ctx.createGain();
+    dry.gain.value = 0.6;
+    input.connect(dry);
+    dry.connect(output);
+    // Wet path (multiple delays)
+    const wet = ctx.createGain();
+    wet.gain.value = 0.4;
+    [0.03, 0.07, 0.11, 0.17, 0.23].forEach(t => {
+      const d = ctx.createDelay(1);
+      d.delayTime.value = t;
+      const g = ctx.createGain();
+      g.gain.value = 0.15;
+      const f = ctx.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.value = 2000;
+      input.connect(d);
+      d.connect(f);
+      f.connect(g);
+      g.connect(wet);
+    });
+    wet.connect(output);
+    return { input, output };
+  },
+
+  // Chapter music definitions
+  chapters: [
+    // 序章: 孤独的城市 — melancholic ambient, minor key, slow
+    { scale: [220, 261.6, 293.7, 329.6, 392, 440, 523.3], tempo: 3200, padFreqs: [110, 164.8, 220], type: 'sine', filterFreq: 800, drift: 0.5 },
+    // 第一章: 爱是一门艺术吗 — warm, curious, major-ish
+    { scale: [261.6, 293.7, 329.6, 392, 440, 523.3, 587.3], tempo: 2800, padFreqs: [130.8, 196, 261.6], type: 'sine', filterFreq: 1200, drift: 0.3 },
+    // 第二章: 爱的四个支柱 — tender, flowing, pentatonic
+    { scale: [261.6, 293.7, 329.6, 392, 523.3, 587.3, 659.3], tempo: 3000, padFreqs: [130.8, 164.8, 196], type: 'triangle', filterFreq: 1000, drift: 0.4 },
+    // 第三章: 五种爱的面貌 — expansive, bright
+    { scale: [293.7, 329.6, 392, 440, 523.3, 587.3, 659.3], tempo: 2600, padFreqs: [146.8, 220, 293.7], type: 'sine', filterFreq: 1400, drift: 0.3 },
+    // 第四章: 现代社会的伪爱 — slightly tense, reflective
+    { scale: [220, 246.9, 293.7, 329.6, 370, 440, 493.9], tempo: 3400, padFreqs: [110, 146.8, 185], type: 'triangle', filterFreq: 700, drift: 0.6 },
+    // 第五章: 修行之路 — meditative, zen, spacious
+    { scale: [261.6, 329.6, 392, 523.3, 659.3, 784, 1047], tempo: 3800, padFreqs: [130.8, 196, 261.6], type: 'sine', filterFreq: 900, drift: 0.2 },
+    // 终章: 站在爱中 — luminous, uplifting, resolved
+    { scale: [329.6, 392, 440, 523.3, 587.3, 659.3, 784], tempo: 3000, padFreqs: [164.8, 220, 329.6], type: 'sine', filterFreq: 1600, drift: 0.2 }
+  ],
+
+  play(chapterIdx) {
+    if (!this.ctx) this.init();
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+    // Stop previous
+    this.stop();
+    if (this.muted) return;
+    const cfg = this.chapters[chapterIdx] || this.chapters[0];
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const nodes = [];
+
+    // Pad layer: sustained chords with slow LFO
+    const padGain = ctx.createGain();
+    padGain.gain.setValueAtTime(0, now);
+    padGain.gain.linearRampToValueAtTime(0.12, now + 4); // slow fade in
+    const padFilter = ctx.createBiquadFilter();
+    padFilter.type = 'lowpass';
+    padFilter.frequency.value = cfg.filterFreq;
+    padFilter.Q.value = 0.5;
+    padGain.connect(padFilter);
+    padFilter.connect(this.reverb.input);
+
+    cfg.padFreqs.forEach(freq => {
+      const osc = ctx.createOscillator();
+      osc.type = cfg.type;
+      osc.frequency.value = freq;
+      // Slow vibrato
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = 0.15 + Math.random() * 0.2;
+      const lfoGain = ctx.createGain();
+      lfoGain.gain.value = freq * 0.003;
+      lfo.connect(lfoGain);
+      lfoGain.connect(osc.frequency);
+      lfo.start(now);
+      osc.connect(padGain);
+      osc.start(now);
+      nodes.push(osc, lfo);
+    });
+    nodes.push(padGain, padFilter);
+
+    // Melody layer: gentle random notes from scale
+    const melGain = ctx.createGain();
+    melGain.gain.value = 0;
+    const melFilter = ctx.createBiquadFilter();
+    melFilter.type = 'lowpass';
+    melFilter.frequency.value = cfg.filterFreq * 1.2;
+    melGain.connect(melFilter);
+    melFilter.connect(this.reverb.input);
+    nodes.push(melGain, melFilter);
+
+    let step = 0;
+    const interval = setInterval(() => {
+      if (!this.ctx || this.muted) return;
+      const t = ctx.currentTime;
+      // Occasionally skip a beat for breathing space
+      if (Math.random() < 0.3) return;
+      const freq = cfg.scale[Math.floor(Math.random() * cfg.scale.length)];
+      const octave = Math.random() > 0.7 ? 2 : 1;
+      const noteFreq = freq * octave;
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = noteFreq;
+      // Slight random detune for warmth
+      osc.detune.value = (Math.random() - 0.5) * 10;
+      const noteGain = ctx.createGain();
+      const attack = 0.3 + Math.random() * 0.5;
+      const sustain = 0.8 + Math.random() * 1.5;
+      const release = 1.0 + Math.random() * 1.5;
+      const peak = 0.04 + Math.random() * 0.03;
+      noteGain.gain.setValueAtTime(0, t);
+      noteGain.gain.linearRampToValueAtTime(peak, t + attack);
+      noteGain.gain.linearRampToValueAtTime(peak * 0.6, t + attack + sustain);
+      noteGain.gain.exponentialRampToValueAtTime(0.001, t + attack + sustain + release);
+      osc.connect(noteGain);
+      noteGain.connect(melFilter);
+      osc.start(t);
+      osc.stop(t + attack + sustain + release + 0.1);
+      step++;
+    }, cfg.tempo);
+
+    // Fade in melody after pad establishes
+    setTimeout(() => { melGain.gain.value = 1; }, 3000);
+
+    this.current = { nodes, interval, padGain, startTime: ctx.currentTime };
+  },
+
+  stop() {
+    if (!this.current) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    // Fade out pad
+    if (this.current.padGain) {
+      try {
+        this.current.padGain.gain.cancelScheduledValues(now);
+        this.current.padGain.gain.setValueAtTime(this.current.padGain.gain.value, now);
+        this.current.padGain.gain.linearRampToValueAtTime(0, now + 2);
+      } catch(e) {}
+    }
+    clearInterval(this.current.interval);
+    // Stop oscillators after fade
+    const nodesToStop = this.current.nodes;
+    setTimeout(() => {
+      nodesToStop.forEach(n => { try { if (n.stop) n.stop(); else if (n.disconnect) n.disconnect(); } catch(e){} });
+    }, 2500);
+    this.current = null;
+  },
+
+  toggle() {
+    this.muted = !this.muted;
+    if (this.muted) {
+      this.stop();
+      if (this.master) this.master.gain.value = 0;
+    } else {
+      if (this.master) this.master.gain.value = this.volume;
+      // Re-play current chapter music
+      BGM.play(STATE.chapter);
+    }
+    return !this.muted;
+  }
+};
+
+// ---- MUSIC TOGGLE ----
+document.getElementById('musicToggle').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const on = BGM.toggle();
+  document.getElementById('musicToggle').classList.toggle('muted', !on);
+});
+
+// ---- STARFIELD ----
+function initStarfield() {
+  const sf = $('#starfield');
+  for (let i = 0; i < 60; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = 1.5 + Math.random() * 3;
+    s.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--dur:${2+Math.random()*4}s;--peak:${0.2+Math.random()*0.5};animation-delay:${-Math.random()*6}s`;
+    sf.appendChild(s);
+  }
+}
+
+function spawnSparkles(x, y, count) {
+  const burst = document.createElement('div');
+  burst.className = 'sparkle-burst';
+  burst.style.left = x + 'px'; burst.style.top = y + 'px';
+  const colors = ['#e07020','#f09050','#e8a0b4','#ffffff','#c8e8e4'];
+  for (let i = 0; i < (count||12); i++) {
+    const sp = document.createElement('div');
+    sp.className = 'sparkle';
+    const angle = (Math.PI * 2 / count) * i + Math.random() * 0.5;
+    const dist = 30 + Math.random() * 50;
+    sp.style.cssText = `--tx:${Math.cos(angle)*dist}px;--ty:${Math.sin(angle)*dist}px;animation-delay:${Math.random()*0.2}s;background:${colors[i%colors.length]}`;
+    burst.appendChild(sp);
+  }
+  document.body.appendChild(burst);
+  setTimeout(() => burst.remove(), 1200);
+}
+
+// ---- PRELOADER ----
+window.addEventListener('load', () => {
+  initStarfield();
+  let p = 0;
+  const iv = setInterval(() => {
+    p += Math.random() * 30 + 10;
+    if (p > 100) p = 100;
+    $('#loadBar').style.width = p + '%';
+    if (p >= 100) {
+      clearInterval(iv);
+      setTimeout(() => {
+        $('#preloader').classList.add('hide');
+        setTimeout(() => { $('#preloader').style.display='none'; startGame(); }, 800);
+      }, 400);
+    }
+  }, 300);
+});
+
+// ---- THEME ----
+function applyTheme(idx) {
+  const ch = CHAPTERS[idx];
+  document.body.className = ch.theme;
+  // Background image
+  const bgEl = document.getElementById('chapterBg');
+  if (bgEl && ch.bgImg) {
+    bgEl.classList.remove('show');
+    const img = new Image();
+    img.onload = () => {
+      bgEl.style.backgroundImage = `url(${ch.bgImg})`;
+      requestAnimationFrame(() => bgEl.classList.add('show'));
+    };
+    img.src = ch.bgImg;
+  }
+  // Background music
+  BGM.play(idx);
+  // Update ambient orbs
+  const amb = $('#ambient');
+  amb.innerHTML = '';
+  (ch.orbColors||[]).forEach((color, i) => {
+    const orb = document.createElement('div');
+    orb.className = 'orb';
+    const s = 200 + Math.random() * 300;
+    Object.assign(orb.style, {
+      width: s+'px', height: s+'px', background: color,
+      left: (10 + i * 30 + Math.random()*20)+'%', top: (10 + Math.random()*60)+'%',
+      animationDelay: -Math.random()*20+'s', animationDuration: 15+Math.random()*15+'s'
+    });
+    amb.appendChild(orb);
+  });
+}
+
+// ---- PROGRESS DOTS ----
+function updateProgress() {
+  const wrap = $('#progressDots');
+  wrap.innerHTML = '';
+  CHAPTERS.forEach((c,i) => {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i < STATE.chapter ? ' done' : '') + (i === STATE.chapter ? ' current' : '');
+    wrap.appendChild(d);
+  });
+  $('#chapterLabel').textContent = CHAPTERS[STATE.chapter].label + ' \u00b7 ' + CHAPTERS[STATE.chapter].title;
+  $('#insightNum').textContent = STATE.insights.length;
+}
+
+// ---- CHAPTER TRANSITION ----
+function showChapterTransition(idx) {
+  return new Promise(resolve => {
+    SFX.play('chapter');
+    // Apply theme first so bg image starts loading behind the transition
+    applyTheme(idx);
+    const ch = CHAPTERS[idx];
+    $('#ctNum').textContent = ch.label;
+    $('#ctTitle').textContent = ch.title;
+    const el = $('#chapterTrans');
+    el.classList.add('show');
+    setTimeout(() => { el.classList.remove('show'); resolve(); }, 2200);
+  });
+}
+
+// ---- LIGHT PARTICLES (replaces hearts) ----
+function spawnLights() {
+  const colors = ['#e07020','#f09050','#e8a0b4','#ffffff','#c8e8e4','#f0b878'];
+  for (let i = 0; i < 10; i++) {
+    const p = document.createElement('div');
+    p.className = 'light-particle';
+    const c = colors[Math.floor(Math.random()*colors.length)];
+    const sz = 3 + Math.random() * 6;
+    p.style.cssText = `width:${sz}px;height:${sz}px;background:${c};box-shadow:0 0 ${sz*2}px ${c};left:${20+Math.random()*60}%;top:${35+Math.random()*35}%;animation-delay:${Math.random()*0.6}s`;
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 3000);
+  }
+}
+
+// ---- INSIGHT SYSTEM ----
+function addInsight(text) {
+  STATE.insights.push({ text, chapter: CHAPTERS[STATE.chapter].label });
+  $('#insightNum').textContent = STATE.insights.length;
+  spawnLights();
+  spawnSparkles(window.innerWidth - 60, 60, 14);
+  SFX.play('insight');
+  return showInsight(text);
+}
+
+function showInsight(text) {
+  return new Promise(resolve => {
+    $('#insightText').textContent = text;
+    const el = $('#insightPopup');
+    el.classList.add('show');
+    setTimeout(() => { el.classList.remove('show'); resolve(); }, 3500);
+  });
+}
+
+// ---- RENDER HELPERS ----
+function clearScene() {
+  const scene = $('#scene');
+  scene.innerHTML = '';
+  scene.classList.remove('scene-enter');
+  void scene.offsetWidth;
+  scene.classList.add('scene-enter');
+}
+
+// Typewriter engine: types out rich HTML text char-by-char
+function typeText(el, html, speed) {
+  return new Promise(resolve => {
+    const charDelay = speed || 76;
+    // Parse HTML into segments: tags are inserted instantly, text chars typed one by one
+    const segments = [];
+    let i = 0;
+    while (i < html.length) {
+      if (html[i] === '<') {
+        let j = html.indexOf('>', i);
+        if (j === -1) j = html.length - 1;
+        segments.push({ type: 'tag', content: html.slice(i, j + 1) });
+        i = j + 1;
+      } else if (html[i] === '&') {
+        let j = html.indexOf(';', i);
+        if (j === -1) { segments.push({ type: 'char', content: html[i] }); i++; }
+        else { segments.push({ type: 'char', content: html.slice(i, j + 1) }); i = j + 1; }
+      } else {
+        segments.push({ type: 'char', content: html[i] });
+        i++;
+      }
+    }
+    // Add cursor
+    el.classList.add('typing-cursor');
+    let buf = '';
+    let idx = 0;
+    let sfxCounter = 0;
+    function step() {
+      if (idx >= segments.length) {
+        el.classList.remove('typing-cursor');
+        el.innerHTML = buf;
+        resolve();
+        return;
+      }
+      const seg = segments[idx++];
+      buf += seg.content;
+      el.innerHTML = buf;
+      if (seg.type === 'char' && seg.content.trim()) {
+        sfxCounter++;
+        if (sfxCounter % 3 === 0) SFX.play('type'); // play every 3rd char to avoid overload
+      }
+      // Tags and whitespace are instant; visible chars have delay
+      const delay = seg.type === 'tag' ? 0 : (seg.content.trim() ? charDelay : charDelay * 0.3);
+      // Punctuation pauses
+      const punct = seg.content;
+      const extra = (punct === '。' || punct === '！' || punct === '？' || punct === '…' || punct === '——') ? 280
+                   : (punct === '，' || punct === '；' || punct === '、' || punct === '：') ? 140
+                   : (punct === '.' || punct === '!' || punct === '?') ? 250
+                   : (punct === ',') ? 120 : 0;
+      requestAnimationFrame(() => $('#scene').scrollTo({ top: $('#scene').scrollHeight, behavior: 'smooth' }));
+      setTimeout(step, delay + extra);
+    }
+    step();
+  });
+}
+
+function renderNarrator(text) {
+  const d = document.createElement('div');
+  d.className = 'dialogue-box';
+  const inner = document.createElement('div');
+  inner.className = 'narrator';
+  d.appendChild(inner);
+  $('#scene').appendChild(d);
+  requestAnimationFrame(() => $('#scene').scrollTo({ top: $('#scene').scrollHeight, behavior: 'smooth' }));
+  return typeText(inner, text);
+}
+
+function renderCharLine(name, text, color='var(--blue)', label='') {
+  const d = document.createElement('div');
+  d.className = 'dialogue-box';
+  const initials = label || name.slice(0, 1);
+  const charLine = document.createElement('div');
+  charLine.className = 'character-line';
+  const avatar = document.createElement('div');
+  avatar.className = 'char-avatar';
+  avatar.style.borderColor = color;
+  avatar.style.color = color;
+  avatar.textContent = initials;
+  const right = document.createElement('div');
+  const nameEl = document.createElement('div');
+  nameEl.className = 'char-name';
+  nameEl.style.color = color;
+  nameEl.textContent = name;
+  const textEl = document.createElement('div');
+  textEl.className = 'char-text';
+  right.appendChild(nameEl);
+  right.appendChild(textEl);
+  charLine.appendChild(avatar);
+  charLine.appendChild(right);
+  d.appendChild(charLine);
+  $('#scene').appendChild(d);
+  requestAnimationFrame(() => $('#scene').scrollTo({ top: $('#scene').scrollHeight, behavior: 'smooth' }));
+  return typeText(textEl, text);
+}
+
+function renderChoices(choices, callback) {
+  const wrap = document.createElement('div');
+  wrap.className='choices dialogue-box';
+  choices.forEach((c,i) => {
+    const btn = document.createElement('button');
+    btn.className='choice-btn';
+    btn.textContent = c.text;
+    btn.onclick = (e) => {
+      SFX.play('select');
+      spawnSparkles(e.clientX, e.clientY, 8);
+      wrap.remove();
+      callback(i, c);
+    };
+    wrap.appendChild(btn);
+  });
+  $('#scene').appendChild(wrap);
+  requestAnimationFrame(()=>$('#scene').scrollTo({top:$('#scene').scrollHeight,behavior:'smooth'}));
+}
+
+function renderConfirmBtn(text, cb) {
+  const btn = document.createElement('button');
+  btn.className='confirm-btn';
+  btn.textContent = text || '继续';
+  btn.onclick = (e) => { SFX.play('confirm'); spawnSparkles(e.clientX, e.clientY, 10); cb(); };
+  $('#scene').appendChild(btn);
+  requestAnimationFrame(()=>$('#scene').scrollTo({top:$('#scene').scrollHeight,behavior:'smooth'}));
+  return btn;
+}
+
+function renderReflection(quote, insight, tag) {
+  const d = document.createElement('div');
+  d.className='reflection-box dialogue-box';
+  d.innerHTML=`<div class="quote">\u201C${quote}\u201D</div><div class="insight">${insight}</div><div class="fromm-tag">\u2014 ${tag || '弗洛姆《爱的艺术》'}</div>`;
+  $('#scene').appendChild(d);
+  setTimeout(()=>d.classList.add('show'),100);
+  requestAnimationFrame(()=>$('#scene').scrollTo({top:$('#scene').scrollHeight,behavior:'smooth'}));
+  return d;
+}
+
+function wait(ms){return new Promise(r=>setTimeout(r,ms))}
+
+// ============================================================
+// CHAPTER SCRIPTS
+// ============================================================
+
+async function startGame() {
+  $('#game').classList.add('active');
+  applyTheme(0);
+  updateProgress();
+  await runChapter(0);
+}
+
+async function nextChapter() {
+  STATE.chapter++;
+  STATE.step = 0;
+  if (STATE.chapter >= CHAPTERS.length) STATE.chapter = CHAPTERS.length-1;
+  updateProgress();
+  await showChapterTransition(STATE.chapter);
+  clearScene();
+  await runChapter(STATE.chapter);
+}
+
+function restartGame() {
+  STATE.chapter = 0; STATE.step = 0; STATE.insights = [];
+  STATE.choices = {};
+  STATE.loveScores = { care:0, responsibility:0, respect:0, knowledge:0 };
+  STATE.selfLove = 50; STATE.started = false;
+  applyTheme(0);
+  updateProgress();
+  clearScene();
+  runChapter(0);
+}
+
+async function runChapter(idx) {
+  updateProgress();
+  const runners = [chPrologue, ch1, ch2, ch3, ch4, ch5, chEnding];
+  await runners[idx]();
+}
+
+// ========== 序章 ==========
+async function chPrologue() {
+  clearScene();
+  await renderNarrator('深夜，一座不夜城。<br>你独自坐在窗前，手机屏幕的蓝光映在脸上。<br>社交媒体上有三百个\u201C好友\u201D，此刻却找不到一个能说话的人。');
+  await wait(400);
+  await renderCharLine('内心的声音','为什么我拥有了这么多，却还是感到……空？','var(--purple)','心');
+  await wait(400);
+  await renderNarrator('1956年，心理学家埃里希\u00b7弗洛姆写下了《爱的艺术》。<br>他说：<span class="highlight">现代人最深的恐惧，不是死亡，而是孤独。</span>');
+  await wait(400);
+  await renderNarrator('而我们为了逃避这种孤独，<br>尝试了各种方式\u2014\u2014');
+  await wait(300);
+  await renderCharLine('弗洛姆','面对内心的孤独，大多数人会选择怎样的逃避方式？<br>想想你自己……','var(--gold)','弗');
+
+  renderChoices([
+    { text: '沉浸在娱乐、购物、酒精中，用刺激麻痹自己', value:'orgiastic' },
+    { text: '努力合群，让自己和所有人一样，不做\u201C异类\u201D', value:'conformity' },
+    { text: '疯狂工作，用\u201C忙碌\u201D填满每一分钟', value:'routine' },
+    { text: '不停刷手机，用浅层社交假装自己不孤独', value:'digital' }
+  ], async (i, c) => {
+    STATE.choices.escape = c.value;
+    const responses = [
+      '弗洛姆称之为\u201C狂欢式的解决\u201D\u2014\u2014短暂的高潮之后，孤独感会加倍返回。',
+      '弗洛姆称之为\u201C顺从式的结合\u201D\u2014\u2014你消灭了自我，却也失去了爱的能力。',
+      '弗洛姆称之为\u201C例行化的结合\u201D\u2014\u2014表面有秩序，内心一片荒芜。',
+      '这是我们时代独有的麻痹\u2014\u2014用信息的洪流淹没内心的空洞。'
+    ];
+    await renderCharLine('弗洛姆', responses[i], 'var(--gold)', '弗');
+    await wait(400);
+    renderReflection(
+      '人对孤立的意识，而没有通过爱来与他人重新结合\u2014\u2014这就是焦虑的根源。',
+      '弗洛姆认为，所有这些\u201C逃避方式\u201D都注定失败，因为它们没有触及问题的根源。唯一真正的解答，是学会爱。',
+      '弗洛姆《爱的艺术》'
+    );
+    await addInsight('孤独是人类最深的焦虑，而逃避它的方式如果不是\u201C爱\u201D，就只会让我们更加孤独。');
+    await wait(400);
+    await renderNarrator('于是，一段关于\u201C爱\u201D的旅程开始了。<br>不是关于如何<span class="highlight">被爱</span>，而是关于如何<span class="highlight">去爱</span>。');
+    renderConfirmBtn('踏上旅程', nextChapter);
+  });
+}
+
+// ========== 第一章 ==========
+async function ch1() {
+  clearScene();
+  await renderNarrator('一间老式咖啡馆。弗洛姆坐在对面，翻开了书的第一页。');
+  await wait(400);
+  await renderCharLine('弗洛姆', '在开始之前，我想问你一个问题。<br>关于\u201C爱\u201D，大多数人犯的最根本的错误是什么？', 'var(--gold)', '弗');
+
+  renderChoices([
+    { text: '选错了人\u2014\u2014没找到\u201C对的人\u201D', value:'object' },
+    { text: '不够真诚\u2014\u2014没有付出真心', value:'sincerity' },
+    { text: '把爱当成了\u201C被爱\u201D\u2014\u2014只想着如何让人爱自己', value:'passive' }
+  ], async (i, c) => {
+    STATE.choices.ch1q1 = c.value;
+    if (i === 2) {
+      await renderCharLine('弗洛姆', '你已经触到了核心。<span class="highlight">大多数人把爱当成被爱的问题，而不是去爱的能力问题。</span>他们终其一生在想\u201C如何变得可爱\u201D，却从不学习\u201C如何去爱\u201D。', 'var(--gold)', '弗');
+    } else if (i === 0) {
+      await renderCharLine('弗洛姆', '这正是最常见的误解。人们以为爱的问题是一个<span class="highlight">对象</span>的问题，而不是<span class="highlight">能力</span>的问题。就像以为只要买到最好的画布就能画出杰作一样。', 'var(--gold)', '弗');
+    } else {
+      await renderCharLine('弗洛姆', '真诚当然重要，但问题更根本。<span class="highlight">大多数人根本没有意识到爱是需要学习的。</span>他们等待爱\u201C降临\u201D，而不是主动去修炼。', 'var(--gold)', '弗');
+    }
+    await wait(400);
+    await renderNarrator('弗洛姆拿出一面镜子，映出了现代人寻找爱情的画面\u2014\u2014');
+    await wait(300);
+
+    clearScene();
+    const taskArea = document.createElement('div');
+    taskArea.className = 'task-area dialogue-box';
+    taskArea.innerHTML = `
+      <div class="task-title">互动实验：爱情市场</div>
+      <div class="task-desc">弗洛姆说，现代人把爱情变成了一场\u201C交易\u201D。<br>以下是人们在\u201C爱情市场\u201D上常做的事。<br>请拖动它们到正确的分类中。</div>
+      <div class="drag-container">
+        <div class="drag-zone" id="zone-market" data-zone="market">
+          <div class="drag-zone-label">市场逻辑<br><small>把爱当交易</small></div>
+        </div>
+        <div class="drag-zone" id="zone-art" data-zone="art">
+          <div class="drag-zone-label">艺术逻辑<br><small>把爱当修行</small></div>
+        </div>
+      </div>
+      <div id="dragItems" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:16px"></div>
+    `;
+    $('#scene').appendChild(taskArea);
+
+    const items = [
+      { text: '努力让自己更有吸引力', zone: 'market' },
+      { text: '学习如何真正理解他人', zone: 'art' },
+      { text: '列出理想伴侣的\u201C条件清单\u201D', zone: 'market' },
+      { text: '培养自己专注和耐心的能力', zone: 'art' },
+      { text: '在社交中展示最好的\u201C人设\u201D', zone: 'market' },
+      { text: '练习对他人的真诚关怀', zone: 'art' },
+    ];
+
+    const shuffled = items.sort(() => Math.random()-0.5);
+    const itemsWrap = taskArea.querySelector('#dragItems');
+    let placed = 0;
+
+    shuffled.forEach((item, idx) => {
+      const el = document.createElement('div');
+      el.className='drag-item'; el.textContent=item.text;
+      el.draggable=true; el.dataset.zone=item.zone; el.dataset.idx=idx;
+      el.ondragstart=e=>{SFX.play('drag');e.dataTransfer.setData('text/plain',idx);el.style.opacity='0.5'};
+      el.ondragend=()=>{el.style.opacity='1'};
+      el.ontouchstart=e=>{el.style.opacity='0.5'};
+      el.ontouchmove=e=>{e.preventDefault()};
+      el.ontouchend=e=>{
+        el.style.opacity='1';
+        const t=e.changedTouches[0];
+        document.querySelectorAll('.drag-zone').forEach(z=>{
+          const r=z.getBoundingClientRect();
+          if(t.clientX>=r.left&&t.clientX<=r.right&&t.clientY>=r.top&&t.clientY<=r.bottom) handleDrop(z.dataset.zone,idx,el);
+        });
+      };
+      itemsWrap.appendChild(el);
+    });
+
+    function handleDrop(targetZone, idx, el) {
+      const item = shuffled[idx];
+      if (!el.parentNode || el.classList.contains('correct')) return;
+      if (targetZone === item.zone) {
+        SFX.play('drop');
+        el.classList.add('correct'); el.draggable=false;
+        document.getElementById('zone-'+targetZone).appendChild(el);
+        placed++;
+        spawnSparkles(el.getBoundingClientRect().left+40, el.getBoundingClientRect().top, 6);
+        if(placed>=items.length) onAllPlaced();
+      } else {
+        SFX.play('wrong');
+        el.classList.add('wrong');
+        setTimeout(()=>el.classList.remove('wrong'),500);
+      }
+    }
+
+    document.querySelectorAll('.drag-zone').forEach(zone => {
+      zone.ondragover=e=>{e.preventDefault();zone.classList.add('over')};
+      zone.ondragleave=()=>zone.classList.remove('over');
+      zone.ondrop=e=>{
+        e.preventDefault(); zone.classList.remove('over');
+        const idx=parseInt(e.dataTransfer.getData('text/plain'));
+        const el=document.querySelector(`.drag-item[data-idx="${idx}"]`);
+        if(el) handleDrop(zone.dataset.zone, idx, el);
+      };
+    });
+
+    async function onAllPlaced() {
+      await wait(600);
+      renderReflection(
+        '爱情不是一件你\u201C找到\u201D的东西，而是一项你必须学会的能力。',
+        '就像音乐、绘画或医术一样，爱是一门需要理论知识、反复练习、以及全身心投入的艺术。如果你不这样对待它，你就永远只是在\u201C坠入爱河\u201D，而不是\u201C站在爱中\u201D。',
+        '弗洛姆《爱的艺术》第一章'
+      );
+      await addInsight('爱不是一种\u201C找到对的人\u201D就会自动发生的感情，而是一门需要终身学习和练习的艺术。');
+      renderConfirmBtn('继续', nextChapter);
+    }
+  });
+}
+
+// ========== 第二章 ==========
+async function ch2() {
+  clearScene();
+  await renderNarrator('弗洛姆说：成熟的爱有四根支柱。<br>缺少任何一根，爱就会坍塌。');
+  await wait(400);
+
+  const taskArea = document.createElement('div');
+  taskArea.className='task-area dialogue-box';
+  taskArea.innerHTML=`
+    <div class="task-title">互动挑战：爱的四根支柱</div>
+    <div class="task-desc">以下有几组情境。每个情境体现了爱的某一个核心要素。<br>请判断它属于哪一根支柱。</div>
+    <div id="pillarGame"></div>
+  `;
+  $('#scene').appendChild(taskArea);
+
+  const pillars = ['关怀 Care','责任 Responsibility','尊重 Respect','了解 Knowledge'];
+  const pillarIcons = [
+    '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="pc1" cx="50%" cy="40%"><stop offset="0%" stop-color="#ffb088"/><stop offset="100%" stop-color="#e86040"/></radialGradient><filter id="pf1"><feGaussianBlur stdDeviation="1.5"/></filter></defs><circle cx="50" cy="50" r="46" fill="#fff5f0" opacity="0.6"/><path d="M50 80 C50 80 20 60 20 42 C20 30 30 22 40 22 C45 22 48 25 50 28 C52 25 55 22 60 22 C70 22 80 30 80 42 C80 60 50 80 50 80Z" fill="url(#pc1)" filter="url(#pf1)"/><ellipse cx="38" cy="78" rx="14" ry="4" fill="#f0c8b0" opacity="0.3"/><ellipse cx="62" cy="78" rx="14" ry="4" fill="#f0c8b0" opacity="0.3"/><path d="M30 72 C34 68 38 74 42 70 C44 68 46 72 50 70 C54 72 56 68 58 70 C62 74 66 68 70 72" fill="none" stroke="#e8a090" stroke-width="1.5" opacity="0.5"/></svg>',
+    '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="pc2" cx="50%" cy="30%"><stop offset="0%" stop-color="#90c870"/><stop offset="100%" stop-color="#508838"/></radialGradient><linearGradient id="pc2b" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a08060"/><stop offset="100%" stop-color="#705030"/></linearGradient><filter id="pf2"><feGaussianBlur stdDeviation="1.2"/></filter></defs><circle cx="50" cy="50" r="46" fill="#f5f8f0" opacity="0.6"/><rect x="46" y="50" width="8" height="32" rx="3" fill="url(#pc2b)"/><ellipse cx="50" cy="38" rx="30" ry="22" fill="url(#pc2)" filter="url(#pf2)" opacity="0.85"/><ellipse cx="38" cy="42" rx="14" ry="10" fill="#b0d890" opacity="0.5"/><ellipse cx="62" cy="42" rx="14" ry="10" fill="#b0d890" opacity="0.5"/><ellipse cx="50" cy="30" rx="18" ry="12" fill="#c8e8a0" opacity="0.5"/><circle cx="36" cy="80" r="4" fill="#f0a0b0" opacity="0.5"/><circle cx="50" cy="82" r="3" fill="#f0c080" opacity="0.5"/><circle cx="64" cy="80" r="4" fill="#e0b0d0" opacity="0.5"/></svg>',
+    '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="pc3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#c0a0e0"/><stop offset="100%" stop-color="#80c8c8"/></linearGradient><filter id="pf3"><feGaussianBlur stdDeviation="1"/></filter></defs><circle cx="50" cy="50" r="46" fill="#f8f0ff" opacity="0.6"/><path d="M42 60 C38 70 30 72 28 68 C26 64 32 58 38 54 C40 52 42 55 42 60Z" fill="url(#pc3)" opacity="0.8" filter="url(#pf3)"/><path d="M58 60 C62 70 70 72 72 68 C74 64 68 58 62 54 C60 52 58 55 58 60Z" fill="url(#pc3)" opacity="0.8" filter="url(#pf3)"/><path d="M40 50 C38 42 42 32 50 28 C58 32 62 42 60 50 C58 56 52 58 50 56 C48 58 42 56 40 50Z" fill="url(#pc3)" opacity="0.6" filter="url(#pf3)"/><path d="M35 52 C28 46 26 36 32 30" fill="none" stroke="#c0a0e0" stroke-width="2" opacity="0.5"/><path d="M65 52 C72 46 74 36 68 30" fill="none" stroke="#80c8c8" stroke-width="2" opacity="0.5"/><circle cx="46" cy="42" r="2" fill="#e0c8ff" opacity="0.7"/><circle cx="54" cy="40" r="1.5" fill="#a0e0e0" opacity="0.7"/></svg>',
+    '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="pc4" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#a0b8e8"/><stop offset="100%" stop-color="#c0a0e8"/></linearGradient><filter id="pf4"><feGaussianBlur stdDeviation="1.5"/></filter></defs><circle cx="50" cy="50" r="46" fill="#f0f0ff" opacity="0.6"/><polygon points="50,25 56,50 50,48 44,50" fill="url(#pc4)" opacity="0.85" filter="url(#pf4)"/><line x1="56" y1="50" x2="78" y2="36" stroke="#e8a0a0" stroke-width="2.5" opacity="0.6"/><line x1="56" y1="50" x2="80" y2="50" stroke="#e8d080" stroke-width="2.5" opacity="0.6"/><line x1="56" y1="50" x2="76" y2="64" stroke="#80c8a0" stroke-width="2.5" opacity="0.6"/><line x1="56" y1="50" x2="68" y2="74" stroke="#a0b8e8" stroke-width="2.5" opacity="0.6"/><line x1="56" y1="50" x2="58" y2="78" stroke="#c0a0e8" stroke-width="2.5" opacity="0.6"/><circle cx="78" cy="36" r="3" fill="#e8a0a0" opacity="0.5"/><circle cx="80" cy="50" r="3" fill="#e8d080" opacity="0.5"/><circle cx="76" cy="64" r="3" fill="#80c8a0" opacity="0.5"/><circle cx="68" cy="74" r="3" fill="#a0b8e8" opacity="0.5"/><circle cx="58" cy="78" r="3" fill="#c0a0e8" opacity="0.5"/></svg>'
+  ];
+  const scenarios = [
+    { text: '你注意到朋友最近沉默寡言，于是主动为她做了一顿饭，陪她坐了一个下午。', answer: 0, explain: '关怀是爱最基本的表现：对所爱之人的生命和成长的主动关注。' },
+    { text: '伴侣想去另一个城市发展事业。虽然你很不舍，但你支持了这个决定。', answer: 2, explain: '尊重意味着让对方按照自己的本性去成长，而不是按照你的期望去塑造对方。' },
+    { text: '你发现父亲最近脾气暴躁，没有生气，而是去了解背后的原因\u2014\u2014他刚被确诊了一个疾病。', answer: 3, explain: '了解是穿透表面行为，看到对方内心真实状态的能力。没有了解，关怀就是盲目的。' },
+    { text: '朋友半夜打来电话说心情很差。虽然你很困，但你接了电话，认真倾听了一个小时。', answer: 1, explain: '责任不是外部的义务，而是内心自愿的回应\u2014\u2014\u201C我回应你的需要，因为你是我在意的人。\u201D' },
+  ];
+
+  let currentQ = 0;
+  const pg = taskArea.querySelector('#pillarGame');
+
+  function showPillarQ() {
+    pg.innerHTML = '';
+    if(currentQ >= scenarios.length) { onPillarsDone(); return; }
+    const s = scenarios[currentQ];
+    pg.innerHTML=`<div class="scenario-card">${s.text}</div>`;
+    const grid = document.createElement('div');
+    grid.className='card-grid';
+    pillars.forEach((p, i) => {
+      const card = document.createElement('div');
+      card.className='select-card';
+      card.innerHTML=`<div class="card-icon">${pillarIcons[i]}</div><div class="card-label">${p.split(' ')[0]}</div><div class="card-desc">${p.split(' ')[1]}</div>`;
+      card.onclick=(e)=>{SFX.play('select');spawnSparkles(e.clientX,e.clientY,6);handlePillarChoice(i,s,card,grid)};
+      grid.appendChild(card);
+    });
+    pg.appendChild(grid);
+  }
+
+  async function handlePillarChoice(i, s, card, grid) {
+    grid.querySelectorAll('.select-card').forEach(c=>c.style.pointerEvents='none');
+    if (i === s.answer) { card.classList.add('selected'); STATE.loveScores[['care','responsibility','respect','knowledge'][s.answer]] += 25; }
+    else { card.style.borderColor='var(--rose)'; grid.children[s.answer].classList.add('selected'); }
+    await wait(500);
+    const exp = document.createElement('div');
+    exp.className='reflection-box';
+    exp.innerHTML=`<div class="insight">${s.explain}</div>`;
+    pg.appendChild(exp);
+    setTimeout(()=>exp.classList.add('show'),100);
+    await wait(1500);
+    const btn = document.createElement('button');
+    btn.className='confirm-btn';
+    btn.textContent = currentQ < scenarios.length-1 ? '下一题' : '完成';
+    btn.onclick=()=>{ currentQ++; showPillarQ(); };
+    pg.appendChild(btn);
+  }
+
+  async function onPillarsDone() {
+    pg.innerHTML='';
+    renderReflection(
+      '爱是一种主动的力量……是人身上的一种积极活动，而不是被动的情感。用最一般的方式来描述爱的主动特征，可以说：爱首先是给予，而不是获取。',
+      '关怀、责任、尊重和了解，四者缺一不可，相互依存。没有尊重的责任会变成控制，没有了解的关怀只是自我投射。',
+      '弗洛姆《爱的艺术》第二章'
+    );
+    await addInsight('爱不是一种感觉，而是由关怀、责任、尊重和了解构成的主动能力。四者缺一不可。');
+    renderConfirmBtn('继续', nextChapter);
+  }
+  showPillarQ();
+}
+
+// ========== 第三章 ==========
+async function ch3() {
+  clearScene();
+  await renderNarrator('弗洛姆说，爱不只有一种面貌。<br>它至少有<span class="highlight">五种形态</span>，每一种都指向人类存在的不同层面。');
+  await wait(400);
+
+  const taskArea = document.createElement('div');
+  taskArea.className='task-area dialogue-box';
+  taskArea.innerHTML=`
+    <div class="task-title">场景剧场：五种爱的考验</div>
+    <div class="task-desc">你将进入五个不同的人生场景。<br>在每个场景中做出选择，体会不同类型的爱。</div>
+    <div id="loveScenes"></div>
+  `;
+  $('#scene').appendChild(taskArea);
+
+  const loveIconSvgs = {
+    brotherly: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="li1" cx="50%" cy="50%"><stop offset="0%" stop-color="#e8d080"/><stop offset="100%" stop-color="transparent"/></radialGradient><filter id="lf1"><feGaussianBlur stdDeviation="1.2"/></filter></defs><circle cx="50" cy="50" r="46" fill="#f0faf8" opacity="0.6"/><circle cx="50" cy="50" r="10" fill="url(#li1)" opacity="0.5"/><path d="M50 28 C48 32 44 34 40 32 C36 30 34 26 36 22" fill="none" stroke="#60b0a8" stroke-width="3" stroke-linecap="round" filter="url(#lf1)"/><path d="M72 50 C68 48 66 44 68 40 C70 36 74 34 78 36" fill="none" stroke="#50a8a0" stroke-width="3" stroke-linecap="round" filter="url(#lf1)"/><path d="M50 72 C52 68 56 66 60 68 C64 70 66 74 64 78" fill="none" stroke="#70b8b0" stroke-width="3" stroke-linecap="round" filter="url(#lf1)"/><path d="M28 50 C32 52 34 56 32 60 C30 64 26 66 22 64" fill="none" stroke="#40a098" stroke-width="3" stroke-linecap="round" filter="url(#lf1)"/><circle cx="36" cy="22" r="4" fill="#80c8c0" opacity="0.6"/><circle cx="78" cy="36" r="4" fill="#70c0b8" opacity="0.6"/><circle cx="64" cy="78" r="4" fill="#90d0c8" opacity="0.6"/><circle cx="22" cy="64" r="4" fill="#60b8b0" opacity="0.6"/></svg>',
+    motherly: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="li2" cx="50%" cy="40%"><stop offset="0%" stop-color="#ffe8c0"/><stop offset="100%" stop-color="#e8c890"/></radialGradient><filter id="lf2"><feGaussianBlur stdDeviation="1.5"/></filter></defs><circle cx="50" cy="50" r="46" fill="#fffaf0" opacity="0.6"/><ellipse cx="50" cy="55" rx="22" ry="14" fill="url(#li2)" filter="url(#lf2)" opacity="0.7"/><ellipse cx="50" cy="58" rx="18" ry="8" fill="#d8b878" opacity="0.3"/><ellipse cx="42" cy="52" rx="6" ry="5" fill="#f8f0e0" stroke="#e8d0a0" stroke-width="1"/><ellipse cx="50" cy="50" rx="6" ry="5" fill="#f8f0e0" stroke="#e8d0a0" stroke-width="1"/><ellipse cx="58" cy="52" rx="6" ry="5" fill="#f8f0e0" stroke="#e8d0a0" stroke-width="1"/><circle cx="32" cy="38" r="6" fill="#ffb0c0" opacity="0.4"/><circle cx="38" cy="32" r="5" fill="#ffa0b0" opacity="0.35"/><circle cx="62" cy="36" r="5" fill="#ffb0c0" opacity="0.35"/><circle cx="68" cy="40" r="6" fill="#ffa8b8" opacity="0.4"/><circle cx="50" cy="30" r="4" fill="#ffc0d0" opacity="0.3"/></svg>',
+    erotic: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="li3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f0a0b0"/><stop offset="100%" stop-color="#e07080"/></linearGradient><filter id="lf3"><feGaussianBlur stdDeviation="1.2"/></filter></defs><circle cx="50" cy="50" r="46" fill="#fff0f4" opacity="0.6"/><path d="M40 70 C38 55 34 42 38 32 C40 26 44 24 46 28 C48 32 46 40 44 50" fill="none" stroke="#c07080" stroke-width="2.5" stroke-linecap="round"/><path d="M60 70 C62 55 66 42 62 32 C60 26 56 24 54 28 C52 32 54 40 56 50" fill="none" stroke="#d08898" stroke-width="2.5" stroke-linecap="round"/><ellipse cx="38" cy="28" rx="10" ry="8" fill="url(#li3)" filter="url(#lf3)" opacity="0.7" transform="rotate(-15,38,28)"/><ellipse cx="34" cy="26" rx="5" ry="4" fill="#ffc0c8" opacity="0.4"/><ellipse cx="62" cy="28" rx="10" ry="8" fill="url(#li3)" filter="url(#lf3)" opacity="0.7" transform="rotate(15,62,28)"/><ellipse cx="66" cy="26" rx="5" ry="4" fill="#ffc0c8" opacity="0.4"/><circle cx="42" cy="22" r="2" fill="#fff0f0" opacity="0.6"/><circle cx="58" cy="22" r="2" fill="#fff0f0" opacity="0.6"/></svg>',
+    self: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="li4" cx="50%" cy="30%"><stop offset="0%" stop-color="#e0c8f0"/><stop offset="100%" stop-color="#b090d0"/></radialGradient><filter id="lf4"><feGaussianBlur stdDeviation="1.5"/></filter></defs><circle cx="50" cy="50" r="46" fill="#f8f0ff" opacity="0.6"/><ellipse cx="50" cy="62" rx="30" ry="6" fill="#d0c0e0" opacity="0.2"/><ellipse cx="50" cy="48" rx="14" ry="10" fill="url(#li4)" filter="url(#lf4)" opacity="0.7"/><ellipse cx="44" cy="42" rx="8" ry="12" fill="#d8b8e8" opacity="0.5" transform="rotate(-20,44,42)"/><ellipse cx="56" cy="42" rx="8" ry="12" fill="#d8b8e8" opacity="0.5" transform="rotate(20,56,42)"/><ellipse cx="40" cy="36" rx="5" ry="9" fill="#e0c8f0" opacity="0.4" transform="rotate(-35,40,36)"/><ellipse cx="60" cy="36" rx="5" ry="9" fill="#e0c8f0" opacity="0.4" transform="rotate(35,60,36)"/><circle cx="50" cy="45" r="5" fill="#f0e0ff" opacity="0.5"/><circle cx="50" cy="44" r="2" fill="#ffe8a0" opacity="0.6"/></svg>',
+    existential: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="li5" cx="50%" cy="60%"><stop offset="0%" stop-color="#e8d080"/><stop offset="100%" stop-color="transparent"/></radialGradient><linearGradient id="li5b" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2a2860"/><stop offset="100%" stop-color="#4a3880"/></linearGradient><filter id="lf5"><feGaussianBlur stdDeviation="2"/></filter></defs><circle cx="50" cy="50" r="46" fill="url(#li5b)" opacity="0.3"/><circle cx="50" cy="50" r="46" fill="#f8f4e8" opacity="0.5"/><circle cx="50" cy="70" r="4" fill="#e8d080" opacity="0.7"/><path d="M44 60 C46 52 48 44 46 36" fill="none" stroke="#80d8a0" stroke-width="2" opacity="0.4" filter="url(#lf5)"/><path d="M56 60 C54 52 52 44 54 36" fill="none" stroke="#a080d8" stroke-width="2" opacity="0.4" filter="url(#lf5)"/><path d="M38 56 C40 48 44 40 50 34 C56 40 60 48 62 56" fill="none" stroke="#e8d080" stroke-width="1.5" opacity="0.3" filter="url(#lf5)"/><circle cx="30" cy="24" r="1.5" fill="#ffe8a0" opacity="0.7"/><circle cx="70" cy="20" r="2" fill="#ffe0a0" opacity="0.6"/><circle cx="22" cy="40" r="1" fill="#e0d8ff" opacity="0.6"/><circle cx="78" cy="38" r="1.5" fill="#ffe8c0" opacity="0.6"/><circle cx="40" cy="18" r="1" fill="#ffd080" opacity="0.7"/><circle cx="60" cy="16" r="1.5" fill="#e0c8ff" opacity="0.5"/><circle cx="50" cy="22" r="2" fill="#ffe0a0" opacity="0.6"/><circle cx="35" cy="32" r="1" fill="#ffd890" opacity="0.5"/><circle cx="65" cy="30" r="1" fill="#e8d0ff" opacity="0.5"/></svg>'
+  };
+  const scenes = [
+    { type:'博爱（兄弟之爱）', icon:loveIconSvgs.brotherly, color:'var(--teal)',
+      scene:'地铁上，一个衣衫褴褛的老人摔倒了。周围的人都在低头看手机。',
+      choices:[
+        {text:'走过去扶起他，问他是否需要帮助',good:true,response:'博爱是对所有人的爱\u2014\u2014不因对方的身份、地位或是否\u201C值得\u201D。弗洛姆说：如果我只爱一个人而对其他人漠不关心，我的爱就不是爱，而是一种共生性的依附。'},
+        {text:'犹豫了一下，但还是走过去了\u2014\u2014毕竟如果是你自己的亲人呢',good:false,response:'你做了对的事，但注意你的动机\u2014\u2014\u201C如果是我的亲人\u201D意味着你还在用私人关系来衡量。真正的博爱不需要这个\u201C如果\u201D。'},
+        {text:'继续走你的路\u2014\u2014你不认识他，也帮不了什么',good:false,response:'弗洛姆会说，这种冷漠正是现代社会\u201C分离感\u201D的症状。我们习惯了把他人当成与自己无关的\u201C物品\u201D。'}
+      ] },
+    { type:'母爱', icon:loveIconSvgs.motherly, color:'var(--warm)',
+      scene:'你的孩子18岁了，要去遥远的城市上大学。离别那天，你心如刀割。',
+      choices:[
+        {text:'哭着说\u201C你一定要常回来，妈妈没有你不行\u201D',good:false,response:'弗洛姆说：母爱最困难的部分不是爱孩子，而是愿意让孩子离开。\u201C不行\u201D这个词暴露了依赖\u2014\u2014这不是为了孩子的成长，而是为了自己的需要。'},
+        {text:'微笑着送别，回家后独自流泪，但你知道这是他必须走的路',good:true,response:'这才是成熟的母爱。弗洛姆说：母爱的最终任务是让孩子独立，让孩子不再需要你。这需要巨大的力量和无私。'},
+        {text:'反复叮嘱注意事项，把他的行李箱塞得满满的',good:false,response:'关怀是好的，但过度的保护暗含着一个信息：\u201C我不相信你能照顾好自己。\u201D弗洛姆会说，真正的母爱是相信孩子的力量。'}
+      ] },
+    { type:'爱情（性爱）', icon:loveIconSvgs.erotic, color:'var(--rose)',
+      scene:'你和伴侣已经在一起三年了。最初的激情已经褪去，你开始觉得生活有些平淡。',
+      choices:[
+        {text:'也许我们不合适了\u2014\u2014当初那种心跳加速的感觉不见了',good:false,response:'这正是弗洛姆最强烈的警告：<span class="highlight">\u201C坠入爱河\u201D的体验只是证明了此前的孤独有多深。</span>如果你把那种初始的狂热当成\u201C爱\u201D本身，你会不断地坠入、幻灭、然后再去寻找下一次坠落。'},
+        {text:'用意志和行动去重新选择这个人\u2014\u2014每天都是一次主动的决定',good:true,response:'弗洛姆说：爱情是一种<span class="highlight">意志的行为，一个决定</span>。两个人从相遇时的偶然性中成长为一种必然\u2014\u2014这需要每天清醒地选择。'},
+        {text:'尝试制造新鲜感\u2014\u2014旅行、惊喜、改变日常',good:false,response:'这些不是坏事，但如果只是追求\u201C刺激感\u201D的回归，你就又回到了\u201C狂欢式逃避\u201D的老路。真正的解药不是更多的新鲜感，而是更深的了解。'}
+      ] },
+    { type:'自爱', icon:loveIconSvgs.self, color:'var(--purple)',
+      scene:'你一直在为所有人付出\u2014\u2014工作、家庭、朋友。突然有一天，你感到精疲力竭，再也给不出任何东西了。',
+      choices:[
+        {text:'继续撑下去\u2014\u2014\u201C善良的人不应该计较这些\u201D',good:false,response:'弗洛姆说：如果一个人只能爱别人而不能爱自己，那他其实谁都爱不了。<span class="highlight">自爱不是自私，自私恰恰是缺乏自爱的表现。</span>自私的人其实对自己很不满意，才需要不断从外界索取。'},
+        {text:'停下来，好好关爱自己\u2014\u2014你也值得被自己照顾',good:true,response:'这正是弗洛姆的观点。自爱是所有爱的基础。你必须先成为一个完整的人，才有能力真正去爱他人。\u201C爱你的邻居如同爱你自己\u201D\u2014\u2014前提是你已经爱自己。'},
+        {text:'对所有人发火\u2014\u2014\u201C你们怎么从来不关心我？\u201D',good:false,response:'这种爆发恰恰证明你一直在做\u201C交易\u201D：我付出，你应该回报。弗洛姆说，成熟的给予是\u201C通过给予来体验力量和富足\u201D，而不是等待回报。'}
+      ] },
+    { type:'对存在的爱（神之爱）', icon:loveIconSvgs.existential, color:'var(--gold)',
+      scene:'深夜，你仰望星空，突然被一种难以言说的感觉击中\u2014\u2014<br>自己如此渺小，宇宙如此浩瀚，而你竟然存在着。',
+      choices:[
+        {text:'感到恐惧\u2014\u2014这种渺小感让你想赶紧回到日常的确定性中',good:false,response:'弗洛姆说，对\u201C分离\u201D的焦虑是人类最根本的恐惧。而逃回日常只是暂时的麻痹。'},
+        {text:'感到一种深沉的联结\u2014\u2014你是这个宇宙的一部分，而不是一个孤立的个体',good:true,response:'弗洛姆说：最成熟的爱，是超越个体、与存在本身合一的体验。这不是消灭自我，而是在保持完整个性的同时，感受到与万物的联结。这是<span class="highlight">\u201C在分离中合一\u201D</span>的终极境界。'},
+        {text:'用理性分析这种感觉\u2014\u2014不过是大脑的化学反应罢了',good:false,response:'理性是重要的工具，但弗洛姆区分了\u201C理性\u201D和\u201C理性主义\u201D。纯粹的理性主义会把活生生的体验变成干巴巴的概念，这本身就是一种逃避。'}
+      ] }
+  ];
+
+  const lsDiv = taskArea.querySelector('#loveScenes');
+  let currentScene = 0;
+
+  function showLoveScene() {
+    lsDiv.innerHTML='';
+    if(currentScene >= scenes.length) { onScenesDone(); return; }
+    const s = scenes[currentScene];
+    lsDiv.innerHTML=`
+      <div style="text-align:center;margin-bottom:16px">
+        <div class="icon-circle" style="margin:0 auto">${s.icon}</div>
+        <div style="color:${s.color};font-family:'Noto Serif SC',serif;font-size:1rem;margin-top:4px">${s.type}</div>
+      </div>
+      <div class="scenario-card">${s.scene}</div>
+      <div id="loveChoices" class="choices"></div>
+      <div id="loveResult"></div>
+    `;
+    const choicesDiv = lsDiv.querySelector('#loveChoices');
+    s.choices.forEach((c,i) => {
+      const btn = document.createElement('button');
+      btn.className='choice-btn'; btn.textContent=c.text;
+      btn.onclick=(e)=>{SFX.play('select');spawnSparkles(e.clientX,e.clientY,6);handleLoveChoice(i,s,choicesDiv)};
+      choicesDiv.appendChild(btn);
+    });
+  }
+
+  async function handleLoveChoice(i, s, choicesDiv) {
+    choicesDiv.remove();
+    const result = lsDiv.querySelector('#loveResult');
+    const c = s.choices[i];
+    const box = document.createElement('div');
+    box.className='reflection-box';
+    box.innerHTML=`<div class="insight">${c.response}</div>`;
+    result.appendChild(box);
+    setTimeout(()=>box.classList.add('show'),100);
+    await wait(1500);
+    const btn = document.createElement('button');
+    btn.className='confirm-btn';
+    btn.textContent = currentScene < scenes.length-1 ? '下一个场景' : '完成';
+    btn.onclick=()=>{ currentScene++; showLoveScene(); };
+    result.appendChild(btn);
+  }
+
+  async function onScenesDone() {
+    lsDiv.innerHTML='';
+    renderReflection(
+      '如果我确实爱一个人，那么我也爱其他的人，我也爱世界，我也爱生命。',
+      '五种爱看似不同，实则同源。一个真正懂得爱的人，不会只爱一个人而对世界冷漠。爱是一种朝向所有人和所有事物的态度。',
+      '弗洛姆《爱的艺术》第二章'
+    );
+    await addInsight('爱不是排他的：如果你真的爱一个人，你就爱所有人。五种爱同源共生，指向同一种能力。');
+    renderConfirmBtn('继续', nextChapter);
+  }
+  showLoveScene();
+}
+
+// ========== 第四章 ==========
+async function ch4() {
+  clearScene();
+  await renderNarrator('弗洛姆把目光转向了我们生活的时代\u2014\u2014<br>一个把人变成<span class="highlight">商品</span>的时代。');
+  await wait(400);
+  await renderCharLine('弗洛姆','你有没有想过，为什么现代社会有这么多关于爱的歌曲、电影、小说，但人们却越来越不懂得爱？','var(--gold)','弗');
+  await wait(400);
+
+  const taskArea = document.createElement('div');
+  taskArea.className='task-area dialogue-box';
+  taskArea.innerHTML=`
+    <div class="task-title">伪爱探测器</div>
+    <div class="task-desc">以下是几段\u201C爱情\u201D的描述。<br>用滑块判断它是<span style="color:var(--rose)">伪爱</span>还是<span style="color:var(--teal)">真爱</span>。</div>
+    <div id="pseudoLove"></div>
+  `;
+  $('#scene').appendChild(taskArea);
+
+  const cases = [
+    { text: '\u201C我们是完美的一对\u2014\u2014她负责社交和外在形象，我负责赚钱和决策。就像一个运转良好的团队。\u201D', answer: 15, type: '团队式爱情',
+      reveal: '弗洛姆称之为\u201C二人自私\u201D（egoism \u00e0 deux）\u2014\u2014两个人组成一个利益联盟来对抗世界，看起来亲密无间，实际上不过是把孤独乘以了二。' },
+    { text: '\u201C看完那部电影我哭了好久，爱情真是太伟大了。但在现实中，我从来不愿意为关系中的具体问题去沟通和改变。\u201D', answer: 20, type: '感伤式爱情',
+      reveal: '弗洛姆说：有些人在虚构的故事中获得了爱的\u201C体验\u201D，就以为自己懂得爱了。但爱不是消费出来的情感，它需要在真实关系中通过行动来实践。' },
+    { text: '\u201C他不完美，我也不完美。但我们选择每天真诚地面对彼此，在冲突中学习理解，在平淡中保持关怀。\u201D', answer: 85, type: '成熟的爱',
+      reveal: '这接近弗洛姆所说的成熟的爱\u2014\u2014在保持各自独立和完整的前提下，通过主动的给予和了解实现\u201C合一\u201D。两个人成为一体，但依然是两个人。' },
+    { text: '\u201C没有他我就活不下去。他就是我的一切，我的世界围绕着他旋转。\u201D', answer: 10, type: '偶像崇拜式爱情',
+      reveal: '弗洛姆称之为\u201C偶像崇拜式的爱\u201D\u2014\u2014把对方神化，实际上是在对方身上投射了自己对完整和力量的渴望。这种爱注定幻灭，因为没有人能承受\u201C一切\u201D这个重量。' }
+  ];
+
+  const plDiv = taskArea.querySelector('#pseudoLove');
+  let currentCase = 0;
+
+  function showPseudoCase() {
+    plDiv.innerHTML = '';
+    if(currentCase >= cases.length) { onPseudoDone(); return; }
+    const c = cases[currentCase];
+    plDiv.innerHTML = `
+      <div class="scenario-card" style="text-align:left">${c.text}</div>
+      <div class="slider-group">
+        <div class="slider-label"><span style="color:var(--rose)">伪爱</span><span style="color:var(--teal)">真爱</span></div>
+        <div class="slider-wrap"><input type="range" id="loveSlider" min="0" max="100" value="50"></div>
+        <div class="slider-value" id="sliderVal">50</div>
+      </div>
+      <div id="pseudoResult"></div>
+    `;
+    const slider = plDiv.querySelector('#loveSlider');
+    const valEl = plDiv.querySelector('#sliderVal');
+    slider.oninput = () => { SFX.play('slider'); const v=slider.value; valEl.textContent=v; valEl.style.color=v<40?'var(--rose)':v>60?'var(--teal)':'var(--gold)'; };
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className='confirm-btn'; confirmBtn.textContent='确认判断';
+    confirmBtn.onclick=()=>handlePseudoJudge(parseInt(slider.value), c);
+    plDiv.appendChild(confirmBtn);
+  }
+
+  async function handlePseudoJudge(val, c) {
+    const result = plDiv.querySelector('#pseudoResult');
+    const diff = Math.abs(val - c.answer);
+    let accuracy = diff<20?'判断精准！':diff<40?'方向正确。':'这一次偏了\u2014\u2014但这正是学习的过程。';
+    const box = document.createElement('div');
+    box.className='reflection-box';
+    box.innerHTML=`<div style="color:var(--gold);font-size:0.85rem;margin-bottom:8px">${accuracy} \u00b7 ${c.type}</div><div class="insight">${c.reveal}</div>`;
+    result.appendChild(box);
+    setTimeout(()=>box.classList.add('show'),100);
+    plDiv.querySelector('.confirm-btn').remove();
+    await wait(1000);
+    const btn = document.createElement('button');
+    btn.className='confirm-btn';
+    btn.textContent = currentCase<cases.length-1?'下一段':'完成';
+    btn.onclick=()=>{ currentCase++; showPseudoCase(); };
+    plDiv.appendChild(btn);
+  }
+
+  async function onPseudoDone() {
+    plDiv.innerHTML='';
+    renderReflection(
+      '现代人的爱情不过是两个人联合起来对付孤独\u2014\u2014他们自以为在爱，实际上不过是一种互利的交易。',
+      '资本主义社会把人变成了商品：你在\u201C爱情市场\u201D上出售自己的\u201C吸引力套餐\u201D，同时精明地挑选\u201C性价比最高\u201D的伴侣。这不是爱，这是交易。而真正的爱，恰恰需要你放下商人的思维。',
+      '弗洛姆《爱的艺术》第三章'
+    );
+    await addInsight('我们所处的社会结构本身就在瓦解爱的可能\u2014\u2014只有意识到这一点，才能超越它。');
+    renderConfirmBtn('继续', nextChapter);
+  }
+  showPseudoCase();
+}
+
+// ========== 第五章 ==========
+async function ch5() {
+  clearScene();
+  await renderNarrator('如果爱是一门艺术，那它如何练习？<br>弗洛姆给出了具体的修行之道。');
+  await wait(400);
+  await renderCharLine('弗洛姆','任何艺术的修炼都需要四样东西：<span class="highlight">自律、专注、耐心、和全身心的投入</span>。爱也一样。','var(--gold)','弗');
+  await wait(400);
+
+  const taskArea = document.createElement('div');
+  taskArea.className='task-area dialogue-box';
+  taskArea.innerHTML=`
+    <div class="task-title">爱的修行工坊</div>
+    <div class="task-desc">完成以下四个练习，体会爱作为\u201C日常修行\u201D的含义。</div>
+    <div id="practiceArea"></div>
+  `;
+  $('#scene').appendChild(taskArea);
+
+  const pa = taskArea.querySelector('#practiceArea');
+  let practiceIdx = 0;
+
+  const practices = [
+    { name:'专注力练习', icon:'<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="p5a" cx="50%" cy="50%"><stop offset="0%" stop-color="#ffe8a0"/><stop offset="60%" stop-color="#e8c060"/><stop offset="100%" stop-color="transparent"/></radialGradient></defs><circle cx="50" cy="50" r="46" fill="#f8f4e8" opacity="0.5"/><circle cx="50" cy="50" r="20" fill="url(#p5a)" opacity="0.5"/><circle cx="50" cy="50" r="8" fill="#e8c060" opacity="0.4"/><circle cx="50" cy="50" r="3" fill="#ffe8a0" opacity="0.7"/><circle cx="50" cy="24" r="2" fill="#e8d080" opacity="0.5"/><circle cx="50" cy="76" r="2" fill="#e8d080" opacity="0.5"/><circle cx="24" cy="50" r="2" fill="#e8d080" opacity="0.5"/><circle cx="76" cy="50" r="2" fill="#e8d080" opacity="0.5"/></svg>',
+      desc:'弗洛姆说：如果你不能独处，你就不能爱。试着用30秒感受此刻\u2014\u2014不看手机，不想过去，不担心未来。',
+      type:'timer',
+      followup:'你刚才做了一件在现代社会极其稀有的事\u2014\u2014你与自己独处了片刻。弗洛姆说：\u201C能够独处是能够爱的前提条件。\u201D大多数人无法忍受安静，因为安静会让他们直面自己。' },
+    { name:'给予的体验', icon:'<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="p5b" cx="50%" cy="40%"><stop offset="0%" stop-color="#ffe0a0"/><stop offset="100%" stop-color="#e8a840"/></radialGradient></defs><circle cx="50" cy="50" r="46" fill="#fff8f0" opacity="0.5"/><path d="M35 55 C35 55 30 48 35 42 C38 38 44 40 44 40" fill="none" stroke="#e0a040" stroke-width="2.5" stroke-linecap="round"/><path d="M65 55 C65 55 70 48 65 42 C62 38 56 40 56 40" fill="none" stroke="#e0a040" stroke-width="2.5" stroke-linecap="round"/><path d="M38 52 L50 36 L62 52" fill="none" stroke="#e8b850" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="50" cy="36" r="8" fill="url(#p5b)" opacity="0.6"/><circle cx="50" cy="36" r="3" fill="#ffe8a0" opacity="0.7"/></svg>',
+      desc:'弗洛姆说：爱首先是\u201C给予\u201D，而不是\u201C获取\u201D。但给予不是牺牲\u2014\u2014它是生命力的最高表达。<br><br>写下一件你可以在今天就做的\u201C给予\u201D\u2014\u2014不花钱，但能真正温暖另一个人。',
+      type:'textarea', placeholder:'写下你想做的给予……',
+      followup:'弗洛姆说：\u201C在给予的行为中，我体验到了自己的力量、财富和能力。\u201D真正的给予，不是掏空自己，而是让自己溢出来。你有没有注意到，想到这件事的时候，你自己也感到了一种温暖？这就是给予的力量。' },
+    { name:'克服自恋', icon:'<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="p5c" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#a0d8e8"/><stop offset="100%" stop-color="#d0a8e0"/></linearGradient></defs><circle cx="50" cy="50" r="46" fill="#f4f8ff" opacity="0.5"/><circle cx="38" cy="46" r="14" fill="none" stroke="url(#p5c)" stroke-width="2.5" opacity="0.7"/><circle cx="62" cy="46" r="14" fill="none" stroke="url(#p5c)" stroke-width="2.5" opacity="0.7"/><path d="M48 40 C50 38 50 54 48 52" fill="none" stroke="#b0c8e0" stroke-width="1.5" opacity="0.5"/><path d="M52 40 C50 38 50 54 52 52" fill="none" stroke="#c0a8d8" stroke-width="1.5" opacity="0.5"/><circle cx="34" cy="44" r="2" fill="#a0d8e8" opacity="0.4"/><circle cx="66" cy="44" r="2" fill="#d0a8e0" opacity="0.4"/><path d="M38 64 C42 60 46 62 50 60 C54 62 58 60 62 64" fill="none" stroke="#c0b8d0" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/></svg>',
+      desc:'弗洛姆说：自恋是爱最大的敌人。自恋者只能感受到自己的体验是真实的。<br><br>想一个你最近和某人的分歧。现在，试着完全从对方的角度来写这件事。',
+      type:'textarea', placeholder:'从对方的角度描述这个分歧……',
+      followup:'弗洛姆说：\u201C客观地看待对方\u2014\u2014即能够用他的角度去理解他\u2014\u2014这只有在我不再通过自恋的透镜去看他的时候才可能。\u201D你刚才的练习就是在训练这种能力。每一次你跳出自己的视角，你的爱的能力就增长了一点。' },
+    { name:'信念与勇气', icon:'<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="p5d" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#e8c060"/><stop offset="100%" stop-color="#f0d890"/></linearGradient></defs><circle cx="50" cy="50" r="46" fill="#fffaf0" opacity="0.5"/><path d="M50 70 L50 30" stroke="url(#p5d)" stroke-width="3" stroke-linecap="round"/><path d="M50 30 L40 44" stroke="#e8c060" stroke-width="2.5" stroke-linecap="round"/><path d="M50 30 L60 44" stroke="#e8c060" stroke-width="2.5" stroke-linecap="round"/><circle cx="50" cy="26" r="4" fill="#ffe8a0" opacity="0.5"/><path d="M34 72 C38 66 44 68 50 66 C56 68 62 66 66 72" fill="none" stroke="#e0c880" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/></svg>',
+      desc:'弗洛姆说：没有勇气就不可能有爱。爱意味着在没有保证的情况下将自己投入。<br><br>回答这个问题：你最害怕在爱中失去什么？',
+      type:'textarea', placeholder:'我最害怕在爱中失去……',
+      followup:'弗洛姆说：\u201C去爱意味着在没有任何担保的情况下承诺自己，把自己完全交出去，希望我们的爱在被爱的人身上唤起爱。\u201D你写下的恐惧是真实的\u2014\u2014但弗洛姆告诉我们，正是这份脆弱和勇气，让爱成为了人类最勇敢的行为。' }
+  ];
+
+  function showPractice() {
+    pa.innerHTML='';
+    if(practiceIdx >= practices.length) { onPracticeDone(); return; }
+    const p = practices[practiceIdx];
+    pa.innerHTML = `
+      <div style="text-align:center;margin-bottom:16px">
+        <div class="icon-circle" style="margin:0 auto">${p.icon}</div>
+        <div style="color:var(--gold);font-family:'Noto Serif SC',serif;font-size:1rem;margin-top:4px">${p.name}</div>
+      </div>
+      <div class="scenario-card" style="font-size:0.92rem">${p.desc}</div>
+      <div id="practiceInput"></div>
+      <div id="practiceResult"></div>
+    `;
+    const inputDiv = pa.querySelector('#practiceInput');
+    if(p.type === 'timer') {
+      inputDiv.innerHTML=`<div style="text-align:center">
+        <div id="timerDisplay" style="font-size:2.5rem;color:var(--gold);font-family:'Noto Serif SC',serif;margin:20px 0">30</div>
+        <button class="confirm-btn" id="startTimer">闭上眼睛，开始</button></div>`;
+      const timerBtn = inputDiv.querySelector('#startTimer');
+      const timerDisp = inputDiv.querySelector('#timerDisplay');
+      timerBtn.onclick = () => {
+        timerBtn.disabled=true; timerBtn.textContent='感受此刻……';
+        let sec = 30;
+        const iv = setInterval(()=>{
+          sec--;timerDisp.textContent=sec;
+          if(sec<=0){ clearInterval(iv); timerDisp.textContent='\u2726'; spawnLights(); showPracticeResult(p); }
+        },1000);
+      };
+    } else {
+      inputDiv.innerHTML=`<div class="text-input-area"><textarea id="practiceText" placeholder="${p.placeholder}" rows="4"></textarea></div>`;
+      const btn = document.createElement('button');
+      btn.className='confirm-btn'; btn.textContent='完成';
+      btn.onclick=()=>{
+        const text = pa.querySelector('#practiceText').value.trim();
+        if(text.length<2){ pa.querySelector('#practiceText').style.borderColor='var(--rose)'; return; }
+        showPracticeResult(p);
+      };
+      inputDiv.appendChild(btn);
+    }
+  }
+
+  async function showPracticeResult(p) {
+    const resultDiv = pa.querySelector('#practiceResult');
+    pa.querySelector('#practiceInput').style.display='none';
+    const box = document.createElement('div');
+    box.className='reflection-box';
+    box.innerHTML=`<div class="insight">${p.followup}</div>`;
+    resultDiv.appendChild(box);
+    setTimeout(()=>box.classList.add('show'),100);
+    await wait(1500);
+    const btn = document.createElement('button');
+    btn.className='confirm-btn';
+    btn.textContent = practiceIdx<practices.length-1?'下一个练习':'完成修行';
+    btn.onclick=()=>{ practiceIdx++; showPractice(); };
+    resultDiv.appendChild(btn);
+  }
+
+  async function onPracticeDone() {
+    pa.innerHTML='';
+    renderReflection(
+      '爱是一种信念的行为\u2014\u2014只有少量信念的人，也只有少量爱的能力。',
+      '修炼爱的能力，就像修炼任何艺术一样，没有捷径。它要求你自律而不僵硬，专注而不执着，耐心而不懈怠，全心投入而不患得患失。这是一条终身的道路。',
+      '弗洛姆《爱的艺术》第四章'
+    );
+    await addInsight('爱是一种需要日常修行的能力\u2014\u2014通过自律、专注、耐心和勇气，在每一个平凡的时刻去实践。');
+    renderConfirmBtn('进入终章', nextChapter);
+  }
+  showPractice();
+}
+
+// ========== 终章 ==========
+async function chEnding() {
+  clearScene();
+  await wait(800);
+  const wrap = document.createElement('div');
+  wrap.className='ending-wrap dialogue-box';
+  wrap.innerHTML=`
+    <h2>旅程结束</h2>
+    <div class="ending-subtitle">从\u201C坠入爱河\u201D到\u201C站在爱中\u201D<br>你走过了弗洛姆的整条思考之路</div>
+    <div class="ending-stats">
+      <div class="stat-card"><div class="stat-num">${CHAPTERS.length-1}</div><div class="stat-label">章节完成</div></div>
+      <div class="stat-card"><div class="stat-num">${STATE.insights.length}</div><div class="stat-label">顿悟获得</div></div>
+      <div class="stat-card"><div class="stat-num">\u221E</div><div class="stat-label">修行待续</div></div>
+    </div>
+    <div class="insights-journal" id="journalCapture">
+      <h3>\u2726 你的顿悟日记</h3>
+      <div id="journalList"></div>
+    </div>
+    <div style="text-align:center">
+      <button class="save-journal-btn" id="saveJournalBtn">\u2193 保存为图片</button>
+    </div>
+    <div id="finalWords"></div>
+    <div style="text-align:center;margin-top:16px">
+      <button class="restart-btn" id="restartBtn">\u21BB 重新开始旅程</button>
+    </div>
+  `;
+  $('#scene').appendChild(wrap);
+
+  const jl = wrap.querySelector('#journalList');
+  STATE.insights.forEach((ins,i)=>{
+    const item = document.createElement('div');
+    item.className='journal-item';
+    item.innerHTML=`<div class="ji-ch">${ins.chapter}</div>${ins.text}`;
+    jl.appendChild(item);
+  });
+
+  // Save journal as image
+  wrap.querySelector('#saveJournalBtn').onclick = async function() {
+    const btn = this;
+    btn.textContent = '生成中...'; btn.disabled = true;
+    try {
+      const target = document.getElementById('journalCapture');
+      const canvas = await html2canvas(target, {
+        backgroundColor: '#fff8e1',
+        scale: 2,
+        useCORS: true,
+        logging: false
+      });
+      const link = document.createElement('a');
+      link.download = '\u7231\u7684\u827a\u672f-\u987f\u609f\u65e5\u8bb0.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      btn.textContent = '\u2713 \u5df2\u4fdd\u5b58';
+      setTimeout(()=>{ btn.textContent='\u2193 保存为图片'; btn.disabled=false; }, 2000);
+    } catch(e) {
+      btn.textContent = '\u2193 保存为图片'; btn.disabled = false;
+      console.error(e);
+    }
+  };
+
+  // Restart
+  wrap.querySelector('#restartBtn').onclick = restartGame;
+
+  await wait(1000);
+  const fw = wrap.querySelector('#finalWords');
+  const finalReflection = document.createElement('div');
+  finalReflection.className='reflection-box';
+  finalReflection.innerHTML=`
+    <div class="quote">\u201C爱是人的存在问题的唯一理智的、令人满意的答案。\u201D</div>
+    <div class="insight">
+      弗洛姆写下《爱的艺术》，不是为了教人谈恋爱。<br><br>
+      他是想说：在一个把人变成商品、把爱变成交易、把亲密变成消费的时代，<br>
+      <strong>学会真正去爱，是一个人能做的最勇敢、最自由、也最困难的事。</strong><br><br>
+      爱不是找到对的人。爱不是一种感觉。<br>
+      爱是一种能力，一门艺术，一场终身的修行。<br><br>
+      <span style="color:var(--gold)">而这场修行，从现在开始。</span>
+    </div>
+    <div class="fromm-tag">\u2014 埃里希\u00b7弗洛姆《爱的艺术》，1956</div>
+  `;
+  fw.appendChild(finalReflection);
+  setTimeout(()=>finalReflection.classList.add('show'),300);
+
+  spawnLights();
+  setTimeout(spawnLights, 1000);
+  setTimeout(spawnLights, 2000);
+}
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v67327c56f0bb4ef8b305cae61679db8f1769101564043" integrity="sha512-rdcWY47ByXd76cbCFzznIcEaCN71jqkWBBqlwhF1SY7KubdLKZiEGeP7AyieKZlGP9hbY/MhGrwXzJC/HulNyg==" data-cf-beacon='{"version":"2024.11.0","token":"75124c326cb447fe934cde04713ae013","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
