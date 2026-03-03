@@ -1363,7 +1363,8 @@ async function ch4() {
   async function handlePseudoJudge(val, c) {
     const result = plDiv.querySelector('#pseudoResult');
     const diff = Math.abs(val - c.answer);
-    let accuracy = diff<20?'判断精准！':diff<40?'方向正确。':'这一次偏了\u2014\u2014但这正是学习的过程。';
+    const sameSide = (c.answer < 50 && val < 50) || (c.answer >= 50 && val >= 50);
+    let accuracy = diff<20?'判断精准！':sameSide?'方向正确。':'这一次偏了\u2014\u2014但这正是学习的过程。';
     const box = document.createElement('div');
     box.className='reflection-box';
     box.innerHTML=`<div style="color:var(--gold);font-size:0.85rem;margin-bottom:8px">${accuracy} \u00b7 ${c.type}</div><div class="insight">${c.reveal}</div>`;
