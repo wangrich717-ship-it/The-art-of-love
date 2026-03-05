@@ -36,7 +36,7 @@ body.theme-ch5{background:linear-gradient(160deg,#e8f5e9 0%,#c8e6c9 40%,#d8eeda 
 body.theme-ending{background:linear-gradient(160deg,#fff8e1 0%,#ffe0a0 30%,#ffecc0 60%,#fffaf0 100%)}
 
 /* === PRELOADER === */
-#preloader{position:fixed;inset:0;z-index:9999;background:linear-gradient(160deg,#fdf0e2,#fce4d6,#fde8d0);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 1s}
+#preloader{position:fixed;inset:0;z-index:9999;background:linear-gradient(160deg,#fdf0e2,#fce4d6,#fde8d0);background-image:url('bg/bg-loading.jpg?v=4');background-size:cover;background-position:center;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 1s}
 #preloader.hide{opacity:0;pointer-events:none}
 #preloader h1{font-family:'Noto Serif SC',serif;font-size:2.4rem;color:var(--gold);margin-bottom:1rem;letter-spacing:0.3em}
 #preloader p{color:var(--text-dim);font-size:0.95rem;margin-bottom:2rem}
@@ -277,25 +277,25 @@ const STATE = {
 const CHAPTERS = [
   { id: 'prologue', label: '序章', title: '孤独的城市', theme: 'theme-prologue',
     transBg: 'linear-gradient(160deg,#e8d5f0,#d4c5e8)', orbColors:['#c8a8e8','#e8c0d8','#d0b0e0'],
-    bgImg: 'bg/bg-prologue.jpg' },
+    bgImg: 'bg/bg-prologue.jpg?v=4' },
   { id: 'ch1', label: '第一章', title: '爱是一门艺术吗？', theme: 'theme-ch1',
     transBg: 'linear-gradient(160deg,#fde8d0,#fdd5b0)', orbColors:['#f0c878','#e8a860','#f0d898'],
-    bgImg: 'bg/bg-ch1.jpg' },
+    bgImg: 'bg/bg-ch1.jpg?v=3' },
   { id: 'ch2', label: '第二章', title: '爱的四个支柱', theme: 'theme-ch2',
     transBg: 'linear-gradient(160deg,#fce4ec,#f8d0d8)', orbColors:['#f0a0b8','#e8c0c8','#f8b0c0'],
-    bgImg: 'bg/bg-ch2.jpg' },
+    bgImg: 'bg/bg-ch2.jpg?v=3' },
   { id: 'ch3', label: '第三章', title: '五种爱的面貌', theme: 'theme-ch3',
     transBg: 'linear-gradient(160deg,#e0f2f1,#c8e8e4)', orbColors:['#80cbc4','#a8d8d0','#90c8c0'],
-    bgImg: 'bg/bg-ch3.jpg' },
+    bgImg: 'bg/bg-ch3.jpg?v=3' },
   { id: 'ch4', label: '第四章', title: '现代社会的伪爱', theme: 'theme-ch4',
     transBg: 'linear-gradient(160deg,#fff3e0,#ffe0b0)', orbColors:['#f0c060','#e8a840','#f0d080'],
-    bgImg: 'bg/bg-ch4.jpg' },
+    bgImg: 'bg/bg-ch4.jpg?v=3' },
   { id: 'ch5', label: '第五章', title: '修行之路', theme: 'theme-ch5',
     transBg: 'linear-gradient(160deg,#e8f5e9,#c8e6c9)', orbColors:['#81c784','#a5d6a7','#90c890'],
-    bgImg: 'bg/bg-ch5.jpg' },
+    bgImg: 'bg/bg-ch5.jpg?v=3' },
   { id: 'ending', label: '终章', title: '站在爱中', theme: 'theme-ending',
     transBg: 'linear-gradient(160deg,#fff8e1,#ffe0a0)', orbColors:['#f0c040','#e8a830','#f0d070'],
-    bgImg: 'bg/bg-ending.jpg' }
+    bgImg: 'bg/bg-ending.jpg?v=3' }
 ];
 
 // ---- SOUND ENGINE (Web Audio API) ----
@@ -386,7 +386,7 @@ const SFX = {
           const o = ctx.createOscillator();
           const g = ctx.createGain();
           o.type = 'sine'; o.frequency.value = freq;
-          g.gain.setValueAtTime(0.05, now + i*0.08);
+          g.gain.setValueAtTime(0.025, now + i*0.08);
           g.gain.exponentialRampToValueAtTime(0.001, now + i*0.08 + 0.2);
           o.connect(g); g.connect(ctx.destination);
           o.start(now + i*0.08); o.stop(now + i*0.08 + 0.2);
@@ -429,27 +429,40 @@ const SFX = {
   }
 };
 
-// Init sound on first user interaction
-document.addEventListener('click', () => { SFX.init(); BGM.init(); }, { once: true });
-document.addEventListener('touchstart', () => { SFX.init(); BGM.init(); }, { once: true });
+// Try auto-init sound immediately; fallback to first user interaction
+let _audioInited = false;
+function _initAudio() {
+  if (_audioInited) return;
+  _audioInited = true;
+  SFX.init();
+  BGM.init();
+  // If BGM not yet playing, start prologue music
+  if (!BGM.current && !BGM.muted) BGM.play(STATE.chapter);
+}
+// Attempt auto-play: create AudioContext eagerly and resume it
+try {
+  const _tryCtx = new (window.AudioContext || window.webkitAudioContext)();
+  _tryCtx.resume().then(() => { SFX.ctx = _tryCtx; _initAudio(); }).catch(() => {});
+} catch(e) {}
+// Fallback: init on first user interaction
+document.addEventListener('click', _initAudio, { once: true });
+document.addEventListener('touchstart', _initAudio, { once: true });
 
-// ---- BACKGROUND MUSIC ENGINE (Generative Ambient) ----
+// ---- BACKGROUND MUSIC ENGINE (Gentle Wind-Chime Style) ----
 const BGM = {
   ctx: null,
   master: null,
   reverb: null,
-  current: null, // { nodes: [], interval, idx }
-  volume: 0.35,
+  current: null,
+  volume: 0.3,
   muted: false,
 
   init() {
     if (this.ctx) return;
     this.ctx = SFX.ctx || new (window.AudioContext || window.webkitAudioContext)();
     if (!SFX.ctx) SFX.ctx = this.ctx;
-    // Master gain
     this.master = this.ctx.createGain();
     this.master.gain.value = this.volume;
-    // Convolution reverb simulation using delays
     this.reverb = this._createReverb();
     this.reverb.output.connect(this.master);
     this.master.connect(this.ctx.destination);
@@ -457,158 +470,93 @@ const BGM = {
 
   _createReverb() {
     const ctx = this.ctx;
-    // Create a simple reverb using parallel delays
-    const input = ctx.createGain();
-    input.gain.value = 1;
-    const output = ctx.createGain();
-    output.gain.value = 1;
-    // Dry path
-    const dry = ctx.createGain();
-    dry.gain.value = 0.6;
-    input.connect(dry);
-    dry.connect(output);
-    // Wet path (multiple delays)
-    const wet = ctx.createGain();
-    wet.gain.value = 0.4;
-    [0.03, 0.07, 0.11, 0.17, 0.23].forEach(t => {
-      const d = ctx.createDelay(1);
-      d.delayTime.value = t;
-      const g = ctx.createGain();
-      g.gain.value = 0.15;
+    const input = ctx.createGain(); input.gain.value = 1;
+    const output = ctx.createGain(); output.gain.value = 1;
+    // Dry
+    const dry = ctx.createGain(); dry.gain.value = 0.5;
+    input.connect(dry); dry.connect(output);
+    // Wet: long, airy delays for spacious reverb
+    const wet = ctx.createGain(); wet.gain.value = 0.5;
+    [0.05, 0.12, 0.2, 0.31, 0.43, 0.6].forEach(t => {
+      const d = ctx.createDelay(1); d.delayTime.value = t;
+      const g = ctx.createGain(); g.gain.value = 0.08;
       const f = ctx.createBiquadFilter();
-      f.type = 'lowpass';
-      f.frequency.value = 2000;
-      input.connect(d);
-      d.connect(f);
-      f.connect(g);
-      g.connect(wet);
+      f.type = 'lowpass'; f.frequency.value = 2500;
+      input.connect(d); d.connect(f); f.connect(g); g.connect(wet);
     });
     wet.connect(output);
     return { input, output };
   },
 
-  // Chapter music definitions
+  // Each chapter: pentatonic-ish scales in comfortable range, no sub-bass
   chapters: [
-    // 序章: 孤独的城市 — melancholic ambient, minor key, slow
-    { scale: [220, 261.6, 293.7, 329.6, 392, 440, 523.3], tempo: 3200, padFreqs: [110, 164.8, 220], type: 'sine', filterFreq: 800, drift: 0.5 },
-    // 第一章: 爱是一门艺术吗 — warm, curious, major-ish
-    { scale: [261.6, 293.7, 329.6, 392, 440, 523.3, 587.3], tempo: 2800, padFreqs: [130.8, 196, 261.6], type: 'sine', filterFreq: 1200, drift: 0.3 },
-    // 第二章: 爱的四个支柱 — tender, flowing, pentatonic
-    { scale: [261.6, 293.7, 329.6, 392, 523.3, 587.3, 659.3], tempo: 3000, padFreqs: [130.8, 164.8, 196], type: 'triangle', filterFreq: 1000, drift: 0.4 },
-    // 第三章: 五种爱的面貌 — expansive, bright
-    { scale: [293.7, 329.6, 392, 440, 523.3, 587.3, 659.3], tempo: 2600, padFreqs: [146.8, 220, 293.7], type: 'sine', filterFreq: 1400, drift: 0.3 },
-    // 第四章: 现代社会的伪爱 — slightly tense, reflective
-    { scale: [220, 246.9, 293.7, 329.6, 370, 440, 493.9], tempo: 3400, padFreqs: [110, 146.8, 185], type: 'triangle', filterFreq: 700, drift: 0.6 },
-    // 第五章: 修行之路 — meditative, zen, spacious
-    { scale: [261.6, 329.6, 392, 523.3, 659.3, 784, 1047], tempo: 3800, padFreqs: [130.8, 196, 261.6], type: 'sine', filterFreq: 900, drift: 0.2 },
-    // 终章: 站在爱中 — luminous, uplifting, resolved
-    { scale: [329.6, 392, 440, 523.3, 587.3, 659.3, 784], tempo: 3000, padFreqs: [164.8, 220, 329.6], type: 'sine', filterFreq: 1600, drift: 0.2 }
+    { scale: [523.3, 587.3, 659.3, 784, 880], tempo: 3500 },        // 序章: C5 pentatonic, dreamy
+    { scale: [523.3, 587.3, 659.3, 784, 880, 1047], tempo: 3000 },   // 第一章: warm, curious
+    { scale: [440, 523.3, 587.3, 659.3, 784, 880], tempo: 3200 },    // 第二章: tender
+    { scale: [523.3, 659.3, 784, 880, 1047, 1175], tempo: 2800 },    // 第三章: bright, expansive
+    { scale: [440, 493.9, 523.3, 587.3, 659.3, 784], tempo: 3600 },  // 第四章: reflective
+    { scale: [523.3, 659.3, 784, 1047, 1175], tempo: 4200 },         // 第五章: meditative, sparse
+    { scale: [587.3, 659.3, 784, 880, 1047, 1175], tempo: 3000 }     // 终章: luminous, uplifting
   ],
+
+  _playNote(freq, when) {
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    osc.detune.value = (Math.random() - 0.5) * 4;
+    // Gentle bell-like envelope: quick soft attack, long natural decay
+    const env = ctx.createGain();
+    const attack = 0.08 + Math.random() * 0.12;
+    const decay = 2.5 + Math.random() * 3.0;
+    const peak = 0.04 + Math.random() * 0.03;
+    env.gain.setValueAtTime(0, when);
+    env.gain.linearRampToValueAtTime(peak, when + attack);
+    env.gain.exponentialRampToValueAtTime(0.0005, when + attack + decay);
+    // High-pass to keep it airy
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass'; hp.frequency.value = 300; hp.Q.value = 0.3;
+    osc.connect(env);
+    env.connect(hp);
+    hp.connect(this.reverb.input);
+    osc.start(when);
+    osc.stop(when + attack + decay + 0.2);
+  },
 
   play(chapterIdx) {
     if (!this.ctx) this.init();
     if (this.ctx.state === 'suspended') this.ctx.resume();
-    // Stop previous
     this.stop();
     if (this.muted) return;
     const cfg = this.chapters[chapterIdx] || this.chapters[0];
     const ctx = this.ctx;
-    const now = ctx.currentTime;
-    const nodes = [];
 
-    // Pad layer: sustained chords with slow LFO
-    const padGain = ctx.createGain();
-    padGain.gain.setValueAtTime(0, now);
-    padGain.gain.linearRampToValueAtTime(0.12, now + 4); // slow fade in
-    const padFilter = ctx.createBiquadFilter();
-    padFilter.type = 'lowpass';
-    padFilter.frequency.value = cfg.filterFreq;
-    padFilter.Q.value = 0.5;
-    padGain.connect(padFilter);
-    padFilter.connect(this.reverb.input);
-
-    cfg.padFreqs.forEach(freq => {
-      const osc = ctx.createOscillator();
-      osc.type = cfg.type;
-      osc.frequency.value = freq;
-      // Slow vibrato
-      const lfo = ctx.createOscillator();
-      lfo.frequency.value = 0.15 + Math.random() * 0.2;
-      const lfoGain = ctx.createGain();
-      lfoGain.gain.value = freq * 0.003;
-      lfo.connect(lfoGain);
-      lfoGain.connect(osc.frequency);
-      lfo.start(now);
-      osc.connect(padGain);
-      osc.start(now);
-      nodes.push(osc, lfo);
-    });
-    nodes.push(padGain, padFilter);
-
-    // Melody layer: gentle random notes from scale
-    const melGain = ctx.createGain();
-    melGain.gain.value = 0;
-    const melFilter = ctx.createBiquadFilter();
-    melFilter.type = 'lowpass';
-    melFilter.frequency.value = cfg.filterFreq * 1.2;
-    melGain.connect(melFilter);
-    melFilter.connect(this.reverb.input);
-    nodes.push(melGain, melFilter);
-
-    let step = 0;
+    // Schedule sparse notes with randomized timing
+    let lastNote = -1;
     const interval = setInterval(() => {
       if (!this.ctx || this.muted) return;
+      // 50% chance to skip — creates natural breathing silence
+      if (Math.random() < 0.5) return;
       const t = ctx.currentTime;
-      // Occasionally skip a beat for breathing space
-      if (Math.random() < 0.3) return;
-      const freq = cfg.scale[Math.floor(Math.random() * cfg.scale.length)];
-      const octave = Math.random() > 0.7 ? 2 : 1;
-      const noteFreq = freq * octave;
-      const osc = ctx.createOscillator();
-      osc.type = 'sine';
-      osc.frequency.value = noteFreq;
-      // Slight random detune for warmth
-      osc.detune.value = (Math.random() - 0.5) * 10;
-      const noteGain = ctx.createGain();
-      const attack = 0.3 + Math.random() * 0.5;
-      const sustain = 0.8 + Math.random() * 1.5;
-      const release = 1.0 + Math.random() * 1.5;
-      const peak = 0.04 + Math.random() * 0.03;
-      noteGain.gain.setValueAtTime(0, t);
-      noteGain.gain.linearRampToValueAtTime(peak, t + attack);
-      noteGain.gain.linearRampToValueAtTime(peak * 0.6, t + attack + sustain);
-      noteGain.gain.exponentialRampToValueAtTime(0.001, t + attack + sustain + release);
-      osc.connect(noteGain);
-      noteGain.connect(melFilter);
-      osc.start(t);
-      osc.stop(t + attack + sustain + release + 0.1);
-      step++;
+      // Pick a note, avoid immediate repetition
+      let idx = Math.floor(Math.random() * cfg.scale.length);
+      if (idx === lastNote && cfg.scale.length > 1) idx = (idx + 1) % cfg.scale.length;
+      lastNote = idx;
+      const freq = cfg.scale[idx];
+      this._playNote(freq, t + Math.random() * 0.3);
+      // Occasionally play a soft harmony note
+      if (Math.random() < 0.25) {
+        const h = Math.floor(Math.random() * cfg.scale.length);
+        this._playNote(cfg.scale[h] * 0.5, t + 0.5 + Math.random() * 0.5);
+      }
     }, cfg.tempo);
 
-    // Fade in melody after pad establishes
-    setTimeout(() => { melGain.gain.value = 1; }, 3000);
-
-    this.current = { nodes, interval, padGain, startTime: ctx.currentTime };
+    this.current = { interval };
   },
 
   stop() {
     if (!this.current) return;
-    const ctx = this.ctx;
-    const now = ctx.currentTime;
-    // Fade out pad
-    if (this.current.padGain) {
-      try {
-        this.current.padGain.gain.cancelScheduledValues(now);
-        this.current.padGain.gain.setValueAtTime(this.current.padGain.gain.value, now);
-        this.current.padGain.gain.linearRampToValueAtTime(0, now + 2);
-      } catch(e) {}
-    }
     clearInterval(this.current.interval);
-    // Stop oscillators after fade
-    const nodesToStop = this.current.nodes;
-    setTimeout(() => {
-      nodesToStop.forEach(n => { try { if (n.stop) n.stop(); else if (n.disconnect) n.disconnect(); } catch(e){} });
-    }, 2500);
     this.current = null;
   },
 
@@ -619,7 +567,6 @@ const BGM = {
       if (this.master) this.master.gain.value = 0;
     } else {
       if (this.master) this.master.gain.value = this.volume;
-      // Re-play current chapter music
       BGM.play(STATE.chapter);
     }
     return !this.muted;
@@ -1362,9 +1309,9 @@ async function ch4() {
 
   async function handlePseudoJudge(val, c) {
     const result = plDiv.querySelector('#pseudoResult');
+    const directionCorrect = c.answer < 50 ? val < 50 : val >= 50;
     const diff = Math.abs(val - c.answer);
-    const sameSide = (c.answer < 50 && val < 50) || (c.answer >= 50 && val >= 50);
-    let accuracy = diff<20?'判断精准！':sameSide?'方向正确。':'这一次偏了\u2014\u2014但这正是学习的过程。';
+    let accuracy = !directionCorrect?'这一次偏了\u2014\u2014但这正是学习的过程。':diff<20?'判断精准！':'方向正确。';
     const box = document.createElement('div');
     box.className='reflection-box';
     box.innerHTML=`<div style="color:var(--gold);font-size:0.85rem;margin-bottom:8px">${accuracy} \u00b7 ${c.type}</div><div class="insight">${c.reveal}</div>`;
@@ -1588,6 +1535,6 @@ async function chEnding() {
   setTimeout(spawnLights, 2000);
 }
 </script>
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v67327c56f0bb4ef8b305cae61679db8f1769101564043" integrity="sha512-rdcWY47ByXd76cbCFzznIcEaCN71jqkWBBqlwhF1SY7KubdLKZiEGeP7AyieKZlGP9hbY/MhGrwXzJC/HulNyg==" data-cf-beacon='{"version":"2024.11.0","token":"75124c326cb447fe934cde04713ae013","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"75124c326cb447fe934cde04713ae013","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>
